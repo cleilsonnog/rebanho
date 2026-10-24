@@ -1,0 +1,199 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Cada igreja é um tenant. Será ligada à organização do Clerk por `clerkOrgId`.
+model Church {
+  id         String  @id @default(cuid())
+  clerkOrgId String? @unique
+  nome       String
+  sigla      String  @default("")
+  cnpj       String  @default("")
+  pastor     String  @default("")
+  telefone   String  @default("")
+  email      String  @default("")
+  rua        String  @default("")
+  numero     String  @default("")
+  bairro     String  @default("")
+  cidade     String  @default("")
+  uf         String  @default("") @db.Char(2)
+  cep        String  @default("")
+
+  whatsappConectado  Boolean @default(false)
+  whatsappNumero     String?
+  whatsappDiasAntes  Int     @default(1)
+  whatsappAutomatico Boolean @default(true)
+  whatsappMensagem   String  @default("Olá, {nome}! 🎉 A {igreja} celebra a sua vida hoje. Feliz aniversário!")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  congregations Congregation[]
+  members       Member[]
+  visits        Visit[]
+  transactions  Transaction[]
+  events        Event[]
+  certificates  Certificate[]
+}
+
+model Congregation {
+  id       String   @id @default(cuid())
+  churchId String
+  church   Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  nome     String
+  members  Member[]
+
+  @@unique([churchId, nome])
+}
+
+enum MemberStatus {
+  ativo
+  afastado
+  visitante
+  transferido
+}
+
+enum Sexo {
+  M
+  F
+}
+
+enum EstadoCivil {
+  solteiro
+  casado
+  divorciado
+  viuvo
+}
+
+model Member {
+  id             String        @id @default(cuid())
+  churchId       String
+  church         Church        @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  congregationId String?
+  congregation   Congregation? @relation(fields: [congregationId], references: [id], onDelete: SetNull)
+
+  nome        String
+  sexo        Sexo
+  nascimento  DateTime     @db.Date
+  telefone    String       @default("")
+  email       String       @default("")
+  estadoCivil EstadoCivil  @default(solteiro)
+  rua         String       @default("")
+  numero      String       @default("")
+  bairro      String       @default("")
+  cidade      String       @default("")
+  uf          String       @default("") @db.Char(2)
+  cep         String       @default("")
+  lat         Float?
+  lng         Float?
+  cargo       String       @default("Membro")
+  ministerios String[]
+  status      MemberStatus @default(ativo)
+  batizado    Boolean      @default(false)
+  dataBatismo DateTime?    @db.Date
+  membroDesde DateTime     @db.Date
+  observacoes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  visits       Visit[]
+  transactions Transaction[]
+  certificates Certificate[]
+
+  @@index([churchId, nome])
+  @@index([churchId, status])
+}
+
+model Visit {
+  id            String    @id @default(cuid())
+  churchId      String
+  church        Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  memberId      String
+  member        Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  data          DateTime  @db.Date
+  responsavel   String
+  motivo        String
+  notas         String
+  proximaVisita DateTime? @db.Date
+  createdAt     DateTime  @default(now())
+
+  @@index([churchId, data])
+}
+
+enum TransactionType {
+  entrada
+  saida
+}
+
+enum PaymentMethod {
+  pix
+  dinheiro
+  cartao
+  transferencia
+  boleto
+}
+
+model Transaction {
+  id             String          @id @default(cuid())
+  churchId       String
+  church         Church          @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  memberId       String?
+  member         Member?         @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  tipo           TransactionType
+  categoria      String
+  valor          Decimal         @db.Decimal(12, 2)
+  data           DateTime        @db.Date
+  descricao      String
+  formaPagamento PaymentMethod
+  createdAt      DateTime        @default(now())
+
+  @@index([churchId, data])
+}
+
+enum EventType {
+  culto
+  reuniao
+  evento
+  ensaio
+  curso
+}
+
+model Event {
+  id        String    @id @default(cuid())
+  churchId  String
+  church    Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  titulo    String
+  data      DateTime  @db.Date
+  hora      String    @db.VarChar(5)
+  local     String
+  tipo      EventType
+  descricao String?
+
+  @@index([churchId, data])
+}
+
+enum CertificateStyle {
+  classico
+  moderno
+  minimalista
+}
+
+model Certificate {
+  id        String           @id @default(cuid())
+  churchId  String
+  church    Church           @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  memberId  String
+  member    Member           @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  tipo      String
+  estilo    CertificateStyle
+  detalhe   String           @default("")
+  emitidoEm DateTime         @db.Date
+
+  @@index([churchId, emitidoEm])
+}
