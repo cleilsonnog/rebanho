@@ -86,10 +86,10 @@ export const FEATURES: Feature[] = [
     slug: "mapa-de-membros",
     icon: MapPinned,
     title: "Mapa de membros",
-    short: "Veja onde as famílias moram e planeje visitas por região.",
+    short: "Veja por bairro onde as famílias moram, com sede, filiais e células.",
     description:
-      "Um mapa interativo com os endereços agrupados. Aproxime para ver quem mora perto, organize células e planeje visitas no mesmo bairro.",
-    bullets: ["Pinos agrupados por região", "Filtro por situação", "Clique e veja a ficha", "Células no mapa"],
+      "Um mapa interativo que abre na sua igreja, com a sede, as filiais e as casas das células. Cada membro aparece numa posição aproximada do bairro, nunca na porta de casa, e só quem cuida das pessoas vê o mapa.",
+    bullets: ["Sede, filiais e células no mapa", "Pino aproximado por bairro, para proteger as famílias", "Filtro por situação e por filial", "Clique e veja a ficha"],
     appHref: "/app/mapa",
   },
   {
