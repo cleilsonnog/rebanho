@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Building2, MapPin, MapPinOff, Pencil, Phone, Plus, Trash2, User } from "lucide-react"
 import { toast } from "sonner"
 
+import { PinPicker } from "@/components/app/pin-picker"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -16,7 +17,7 @@ import { useApp } from "@/lib/store"
 import type { Endereco, Filial } from "@/lib/types"
 import { filialSchema } from "@/lib/validations"
 
-type Draft = { nome: string; dirigente: string; telefone: string; endereco: Endereco }
+type Draft = { nome: string; dirigente: string; telefone: string; endereco: Endereco; lat: number; lng: number }
 
 function FilialDialog({ filial, onClose }: { filial?: Filial; onClose: () => void }) {
   const router = useRouter()
@@ -25,11 +26,19 @@ function FilialDialog({ filial, onClose }: { filial?: Filial; onClose: () => voi
   const { errors, pending, submit, invalid } = useFormAction()
   const [d, setD] = React.useState<Draft>(() =>
     filial
-      ? { nome: filial.nome, dirigente: filial.dirigente, telefone: filial.telefone, endereco: filial.endereco }
-      : { nome: "", dirigente: "", telefone: "", endereco: { rua: "", numero: "", bairro: "", cidade: cidadeIgreja.cidade, uf: cidadeIgreja.uf, cep: "" } }
+      ? { nome: filial.nome, dirigente: filial.dirigente, telefone: filial.telefone, endereco: filial.endereco, lat: filial.lat, lng: filial.lng }
+      : {
+          nome: "",
+          dirigente: "",
+          telefone: "",
+          endereco: { rua: "", numero: "", bairro: "", cidade: cidadeIgreja.cidade, uf: cidadeIgreja.uf, cep: "" },
+          lat: 0,
+          lng: 0,
+        }
   )
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setD((s) => ({ ...s, [k]: v }))
-  const setEnd = (k: keyof Endereco, v: string) => setD((s) => ({ ...s, endereco: { ...s.endereco, [k]: v } }))
+  // Mudou o endereço: o pino antigo deixa de valer (sem pino, o servidor localiza ao salvar).
+  const setEnd = (k: keyof Endereco, v: string) => setD((s) => ({ ...s, endereco: { ...s.endereco, [k]: v }, lat: 0, lng: 0 }))
   const sede = filial?.sede
 
   function onSubmit(e: React.FormEvent) {
@@ -94,6 +103,7 @@ function FilialDialog({ filial, onClose }: { filial?: Filial; onClose: () => voi
                   {campo("cidade", "Cidade")}
                   {campo("uf", "UF", { maxLength: 2 })}
                 </div>
+                <PinPicker endereco={d.endereco} lat={d.lat} lng={d.lng} onChange={(lat, lng) => setD((s) => ({ ...s, lat, lng }))} />
               </>
             )}
           </FieldGroup>

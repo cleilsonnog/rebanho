@@ -24,7 +24,7 @@ export const Tiles = () => (
   />
 )
 
-const igrejaIcon = L.divIcon({
+export const igrejaIcon = L.divIcon({
   className: "",
   iconSize: [34, 34],
   iconAnchor: [17, 34],

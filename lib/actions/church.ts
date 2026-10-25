@@ -14,11 +14,12 @@ import { Prisma } from "../generated/prisma/client"
 import { churchSchema, filialSchema, idSchema, whatsappSchema } from "../validations"
 
 export async function updateChurch(input: z.input<typeof churchSchema>) {
-  return secureAction("configuracoes", churchSchema, input, async ({ endereco, ...c }, { church }) => {
-    // Localiza a igreja quando o endereço muda; ela vira o centro dos mapas do painel.
+  return secureAction("configuracoes", churchSchema, input, async ({ endereco, lat, lng, ...c }, { church }) => {
+    // Pino marcado à mão vale; senão, localiza a igreja quando o endereço muda. Ela é o centro dos mapas do painel.
     const mudou = (["rua", "numero", "bairro", "cidade", "uf", "cep"] as const).some((k) => church[k].trim() !== endereco[k])
     let posicao = {}
-    if (mudou || church.lat === null) {
+    if (lat && lng) posicao = { lat, lng }
+    else if (mudou || church.lat === null) {
       await limitar("geocodificacao", church.id)
       const p = endereco.cidade ? await geocodeEndereco(endereco) : null
       posicao = { lat: p?.lat ?? null, lng: p?.lng ?? null }
@@ -38,8 +39,9 @@ export async function updateChurch(input: z.input<typeof churchSchema>) {
 }
 
 /** Endereço e posição de uma filial; a sede não tem endereço próprio (usa o da igreja). */
-async function dadosFilial(churchId: string, { endereco, ...f }: z.output<typeof filialSchema>, sede: boolean) {
+async function dadosFilial(churchId: string, { endereco, lat, lng, ...f }: z.output<typeof filialSchema>, sede: boolean) {
   if (sede) return f
+  if (lat && lng) return { ...f, ...endereco, lat, lng }
   await limitar("geocodificacao", churchId)
   const p = endereco.cidade ? await geocodeEndereco(endereco) : null
   return { ...f, ...endereco, lat: p?.lat ?? null, lng: p?.lng ?? null }

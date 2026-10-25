@@ -36,9 +36,18 @@ async function porCep(cep: string): Promise<Ponto | null> {
   return c?.latitude && c.longitude ? { lat: Number(c.latitude), lng: Number(c.longitude) } : null
 }
 
+/** Distância aproximada em km entre dois pontos (suficiente para comparar posições na mesma cidade). */
+export function distanciaKm(a: Ponto, b: Ponto) {
+  const kmLat = 111
+  const kmLng = 111 * Math.cos((a.lat * Math.PI) / 180)
+  return Math.hypot((a.lat - b.lat) * kmLat, (a.lng - b.lng) * kmLng)
+}
+
 /**
  * Posição exata de um endereço (casa da célula, prédio da igreja): pela rua, depois pelo CEP e por último
  * pelo bairro. Nunca recebe nome de pessoa, só o endereço.
+ * A coordenada do CEP às vezes é só o centro da cidade: se ela cair a mais de 1,5 km do centro do bairro
+ * informado, vale o bairro. A tela sempre deixa ajustar o pino à mão.
  */
 export async function geocodeEndereco(e: Endereco): Promise<(Ponto & { precisao: "endereço" | "CEP" | "bairro" }) | null> {
   const cidade = { city: e.cidade, state: e.uf }
@@ -46,14 +55,10 @@ export async function geocodeEndereco(e: Endereco): Promise<(Ponto & { precisao:
     const p = await nominatim({ street: `${e.numero} ${e.rua}`.trim(), ...cidade })
     if (p) return { ...p, precisao: "endereço" }
   }
-  if (e.cep) {
-    const p = await porCep(e.cep)
-    if (p) return { ...p, precisao: "CEP" }
-  }
-  if (e.bairro) {
-    const p = await nominatim({ q: `${e.bairro}, ${e.cidade} - ${e.uf}` })
-    if (p) return { ...p, precisao: "bairro" }
-  }
+  const cep = e.cep ? await porCep(e.cep) : null
+  const bairro = e.bairro && e.cidade ? await nominatim({ q: `${e.bairro}, ${e.cidade} - ${e.uf}` }) : null
+  if (cep && (!bairro || distanciaKm(cep, bairro) <= 1.5)) return { ...cep, precisao: "CEP" }
+  if (bairro) return { ...bairro, precisao: "bairro" }
   return null
 }
 

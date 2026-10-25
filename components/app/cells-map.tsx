@@ -7,7 +7,7 @@ import Link from "next/link"
 import L from "leaflet"
 import { MapContainer, Marker, Popup, useMap, useMapEvents } from "react-leaflet"
 
-import { ChurchMarker, FitPoints, Tiles, inicio, temPosicao } from "@/components/app/map-base"
+import { ChurchMarker, FitPoints, Tiles, igrejaIcon, inicio, temPosicao } from "@/components/app/map-base"
 import { cellSchedule } from "@/lib/format"
 import { useApp } from "@/lib/store"
 import type { Cell, Member } from "@/lib/types"
@@ -72,19 +72,33 @@ function Recenter({ lat, lng }: { lat: number; lng: number }) {
 }
 
 /** Mapa pequeno do formulário: clique ou arraste o pino até a casa do anfitrião. */
-export function LocationPicker({ lat, lng, onChange }: { lat: number; lng: number; onChange: (lat: number, lng: number) => void }) {
+export function LocationPicker({
+  lat,
+  lng,
+  onChange,
+  showChurch = true,
+  pinoIgreja = false,
+}: {
+  lat: number
+  lng: number
+  onChange: (lat: number, lng: number) => void
+  /** No formulário da própria igreja, o pino salvo dela só confundiria. */
+  showChurch?: boolean
+  /** Pino de prédio (igreja, filial) em vez de casa (célula). */
+  pinoIgreja?: boolean
+}) {
   const church = useApp((s) => s.church)
   const marcado = lat !== 0 || lng !== 0
   return (
     <MapContainer {...(marcado ? { center: [lat, lng] as [number, number], zoom: 16 } : inicio(church))} scrollWheelZoom className="h-full w-full">
       <Tiles />
-      <ChurchMarker church={church} />
+      {showChurch && <ChurchMarker church={church} />}
       <PickOnClick onPick={onChange} />
       <Recenter lat={lat} lng={lng} />
       {marcado && (
         <Marker
           position={[lat, lng]}
-          icon={casa}
+          icon={pinoIgreja ? igrejaIcon : casa}
           draggable
           eventHandlers={{ dragend: (e) => { const p = (e.target as L.Marker).getLatLng(); onChange(p.lat, p.lng) } }}
         />

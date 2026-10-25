@@ -6,6 +6,7 @@ import { toast } from "sonner"
 
 import { ChurchLogo } from "@/components/app/church-logo"
 import { FiliaisSettings } from "@/components/app/filiais-settings"
+import { PinPicker } from "@/components/app/pin-picker"
 import { PageHeader } from "@/components/app/page-header"
 import { MemberAvatar } from "@/components/app/member-avatar"
 import { MemberPicker } from "@/components/app/member-picker"
@@ -92,7 +93,8 @@ function IgrejaTab() {
   const updateChurch = useApp((s) => s.updateChurch)
   const [c, setC] = React.useState<Church>(church)
   const { errors, pending, submit, invalid } = useFormAction()
-  const setEnd = (k: keyof Church["endereco"], v: string) => setC((s) => ({ ...s, endereco: { ...s.endereco, [k]: v } }))
+  // Mudou o endereço: o pino antigo deixa de valer (sem pino, o servidor localiza ao salvar).
+  const setEnd = (k: keyof Church["endereco"], v: string) => setC((s) => ({ ...s, endereco: { ...s.endereco, [k]: v }, lat: 0, lng: 0 }))
 
   return (
     <form
@@ -123,6 +125,9 @@ function IgrejaTab() {
             <Field><FieldLabel htmlFor="cep">CEP</FieldLabel><Input {...invalid("endereco.cep")} id="cep" inputMode="numeric" placeholder="00000-000" value={c.endereco.cep} onChange={(e) => setEnd("cep", e.target.value)} /><FieldError>{errors["endereco.cep"]}</FieldError></Field>
             <Field><FieldLabel htmlFor="cidade">Cidade</FieldLabel><Input {...invalid("endereco.cidade")} id="cidade" value={c.endereco.cidade} onChange={(e) => setEnd("cidade", e.target.value)} /><FieldError>{errors["endereco.cidade"]}</FieldError></Field>
             <Field><FieldLabel htmlFor="uf">UF</FieldLabel><Input {...invalid("endereco.uf")} id="uf" maxLength={2} value={c.endereco.uf} onChange={(e) => setEnd("uf", e.target.value.toUpperCase())} /><FieldError>{errors["endereco.uf"]}</FieldError></Field>
+            <div className="sm:col-span-2">
+              <PinPicker endereco={c.endereco} lat={c.lat} lng={c.lng} onChange={(lat, lng) => setC((s) => ({ ...s, lat, lng }))} showChurch={false} />
+            </div>
           </FieldGroup>
         </CardContent>
         <CardFooter className="flex-wrap gap-3">

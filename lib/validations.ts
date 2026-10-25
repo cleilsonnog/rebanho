@@ -179,6 +179,12 @@ export const cellStudySchema = z.object({
 
 export const geocodeSchema = enderecoSchema
 
+/** Pino marcado à mão no mapa; 0/0 (ou ausente) = o servidor localiza pelo endereço. */
+const pino = {
+  lat: z.number().min(-90).max(90).optional(),
+  lng: z.number().min(-180).max(180).optional(),
+}
+
 export const churchSchema = z.object({
   nome: obrigatorio(120, "Nome").min(2, "Nome curto demais"),
   sigla: texto(10),
@@ -190,6 +196,7 @@ export const churchSchema = z.object({
   telefone,
   email,
   endereco: enderecoSchema,
+  ...pino,
 })
 
 export const filialSchema = z.object({
@@ -197,6 +204,7 @@ export const filialSchema = z.object({
   dirigente: texto(120),
   telefone,
   endereco: enderecoSchema,
+  ...pino,
 })
 
 export const whatsappSchema = z
