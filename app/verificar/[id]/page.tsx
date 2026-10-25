@@ -6,6 +6,7 @@ import { MemberAvatar } from "@/components/app/member-avatar"
 import { Card, CardContent } from "@/components/ui/card"
 import { db } from "@/lib/db"
 import { STATUS_LABEL, formatDate } from "@/lib/format"
+import { clientIp, rateLimit } from "@/lib/rate-limit"
 import { idSchema } from "@/lib/validations"
 
 export const metadata: Metadata = { title: "Verificar carteirinha", robots: { index: false } }
@@ -28,6 +29,17 @@ async function buscar(id: string) {
 }
 
 export default async function VerificarPage({ params }: { params: Promise<{ id: string }> }) {
+  // Única rota de dados sem login: limita por IP para impedir varredura de códigos.
+  const limite = await rateLimit("verificar", await clientIp())
+  if (!limite.ok)
+    return (
+      <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted/40 p-4 text-center">
+        <Logo />
+        <CircleAlert className="size-12 text-destructive" />
+        <p className="max-w-sm text-muted-foreground">Muitas consultas seguidas. Aguarde {limite.retryAfter} segundos e tente de novo.</p>
+      </div>
+    )
+
   const m = await buscar((await params).id)
 
   return (

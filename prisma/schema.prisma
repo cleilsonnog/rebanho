@@ -225,3 +225,13 @@ model Certificate {
 
   @@index([churchId, emitidoEm])
 }
+
+/// Contador do rate limit: quantas vezes `key` agiu na janela que começa em `windowStart`.
+model RateLimit {
+  key         String
+  windowStart DateTime
+  count       Int      @default(1)
+
+  @@id([key, windowStart])
+  @@index([windowStart])
+}

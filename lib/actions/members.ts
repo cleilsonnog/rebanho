@@ -6,6 +6,7 @@ import { secureAction } from "../action"
 import { ActionError } from "../church"
 import { db } from "../db"
 import { memberInclude, toDate, toMember } from "../data"
+import { limitar } from "../rate-limit"
 import { idSchema, importMembersSchema, memberSchema, type MemberInput } from "../validations"
 
 type MemberData = z.output<typeof memberSchema>
@@ -64,7 +65,8 @@ export async function deleteMember(id: string) {
 }
 
 export async function importMembers(input: MemberInput[]) {
-  return secureAction("membros", importMembersSchema, input, async (ms, { church }) => {
+  return secureAction("membros", importMembersSchema, input, async (ms, { church, user }) => {
+    await limitar("importacao", user.id)
     const congs = await congregacoes(church.id)
     const nomes = new Map([...congs.values()].map((c) => [c.id, c.nome]))
     const rows = await db.member.createManyAndReturn({

@@ -66,9 +66,14 @@ uma organização, e os usuários dela (pastor, secretaria, tesouraria) são mem
 Toda gravação passa por uma Server Action que usa `secureAction` ([lib/action.ts](lib/action.ts)):
 
 1. **Sessão**: usuário logado no Clerk com uma igreja ativa; usuário desativado é bloqueado.
-2. **Permissão**: a função do usuário (`ChurchUser.papel`) precisa poder alterar a área.
-3. **Validação**: a entrada passa pelo esquema Zod. Campos extras são descartados.
-4. **Isolamento**: toda consulta filtra por `churchId` da sessão; referências a membros são conferidas.
+2. **Rate limit**: no máximo 60 gravações por minuto por usuário ([lib/rate-limit.ts](lib/rate-limit.ts)).
+3. **Permissão**: a função do usuário (`ChurchUser.papel`) precisa poder alterar a área.
+4. **Validação**: a entrada passa pelo esquema Zod. Campos extras são descartados.
+5. **Isolamento**: toda consulta filtra por `churchId` da sessão; referências a membros são conferidas.
+
+Limites específicos: convites (10/hora por igreja), importação de planilha (10/hora por usuário), carregar dados
+de exemplo (3/hora por igreja) e a página pública da carteirinha (30/min por IP). Os contadores ficam na tabela
+`RateLimit` do Postgres, que funciona com vários servidores; o login e a senha já são protegidos pelo Clerk.
 
 Os mesmos esquemas validam no navegador para mostrar o erro no campo, mas a validação que vale é a do servidor.
 Dados que a função não pode ver (ex.: financeiro para a secretaria) não são enviados ao navegador.

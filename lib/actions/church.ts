@@ -7,6 +7,7 @@ import { secureAction } from "../action"
 import { db } from "../db"
 import { congregationNames, toChurch, toWhatsApp } from "../data"
 import { clearChurchData, insertDemoData } from "../demo"
+import { limitar } from "../rate-limit"
 import { churchSchema, whatsappSchema } from "../validations"
 
 export async function updateChurch(input: z.input<typeof churchSchema>) {
@@ -56,6 +57,7 @@ export async function updateWhatsApp(input: z.input<typeof whatsappSchema>) {
 /** Substitui todos os dados da igreja pelos de exemplo. Só o admin pode. */
 export async function loadDemoData() {
   return secureAction(null, z.undefined(), undefined, async (_, { church }) => {
+    await limitar("demo", church.id)
     await db.$transaction(
       async (tx) => {
         await clearChurchData(tx, church.id)

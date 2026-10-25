@@ -5,6 +5,7 @@ import type { z } from "zod"
 import { ActionError, getSession, type Session } from "./church"
 import { Prisma } from "./generated/prisma/client"
 import { canWrite, type Area } from "./permissions"
+import { limitar } from "./rate-limit"
 import { fieldErrors, type FieldErrors } from "./validations"
 
 export type ActionResult<T = void> =
@@ -14,8 +15,9 @@ export type ActionResult<T = void> =
 /**
  * Executa uma Server Action com todas as checagens, nesta ordem:
  * 1. sessão válida e igreja ativa (Clerk);
- * 2. usuário ativo e com permissão de escrita na área (`null` = só admin);
- * 3. entrada validada pelo esquema Zod.
+ * 2. rate limit por usuário (lib/rate-limit.ts);
+ * 3. usuário ativo e com permissão de escrita na área (`null` = só admin);
+ * 4. entrada validada pelo esquema Zod.
  * A função recebe os dados já validados e a sessão, e deve filtrar toda consulta por `session.church.id`.
  * Erros inesperados são registrados no servidor e chegam ao usuário só como mensagem genérica.
  */
@@ -27,6 +29,7 @@ export async function secureAction<S extends z.ZodType, T>(
 ): Promise<ActionResult<T>> {
   try {
     const session = await getSession()
+    await limitar("escrita", session.user.id)
     const permitido = area ? canWrite(session.user.papel, area) : session.user.papel === "admin"
     if (!permitido) return { ok: false, error: "Sua função não permite fazer isso." }
 

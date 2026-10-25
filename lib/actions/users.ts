@@ -8,6 +8,7 @@ import { secureAction } from "../action"
 import { ActionError } from "../church"
 import { db } from "../db"
 import { toUser } from "../data"
+import { limitar } from "../rate-limit"
 import { idSchema, inviteSchema, updateUserSchema } from "../validations"
 
 // Gestão de usuários é só do admin (área `null` no secureAction).
@@ -15,6 +16,7 @@ import { idSchema, inviteSchema, updateUserSchema } from "../validations"
 export async function inviteUser(input: z.input<typeof inviteSchema>) {
   return secureAction(null, inviteSchema, input, async ({ nome, email, papel }, { church, user }) => {
     if (!church.clerkOrgId) throw new ActionError("Igreja sem organização no Clerk.")
+    await limitar("convite", church.id)
     const row = await db.churchUser.create({ data: { churchId: church.id, nome, email: email.toLowerCase(), papel } })
 
     // O link do e-mail volta para o login do Rebanho (o <SignIn /> trata o convite), e não para a página padrão do Clerk.
