@@ -36,7 +36,7 @@ export default function TermosPage() {
           <li>Cadastrar dados de crianças e adolescentes somente com o consentimento de um dos pais ou responsável, conforme o art. 14 da LGPD.</li>
           <li>Cadastrar apenas o necessário para a gestão da igreja e manter as informações corretas e atualizadas.</li>
           <li>
-            Escolher quem acessa o sistema e com qual função (administrador, secretaria, tesouraria, pastor ou líder), e
+            Escolher quem acessa o sistema e com qual função (administrador, secretaria, tesouraria, pastor ou líder de célula), e
             desativar ou remover o acesso de quem deixar a função. Tudo o que um usuário convidado faz é de
             responsabilidade da igreja.
           </li>

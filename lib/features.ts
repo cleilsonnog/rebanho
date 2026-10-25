@@ -4,6 +4,7 @@ import {
   Camera,
   HandCoins,
   HeartHandshake,
+  House,
   IdCard,
   MapPinned,
   Users,
@@ -88,8 +89,23 @@ export const FEATURES: Feature[] = [
     short: "Veja onde as famílias moram e planeje visitas por região.",
     description:
       "Um mapa interativo com os endereços agrupados. Aproxime para ver quem mora perto, organize células e planeje visitas no mesmo bairro.",
-    bullets: ["Pinos agrupados por região", "Filtro por situação", "Clique e veja a ficha", "Planejamento de células"],
+    bullets: ["Pinos agrupados por região", "Filtro por situação", "Clique e veja a ficha", "Células no mapa"],
     appHref: "/app/mapa",
+  },
+  {
+    slug: "celulas",
+    icon: House,
+    title: "Células",
+    short: "Presença, visitantes e o estudo da semana de cada célula.",
+    description:
+      "Cada célula tem nome, casal de líderes, colíderes e anfitrião, e aparece no mapa na casa de quem a recebe. O pastor publica o estudo da semana uma vez e todas as células recebem. O líder marca a presença, anota os visitantes e as observações da reunião pelo celular.",
+    bullets: [
+      "Líderes, colíderes e anfitrião",
+      "Presença e visitantes de cada reunião",
+      "Estudo da semana para imprimir ou salvar em PDF",
+      "Casa do anfitrião no mapa",
+    ],
+    appHref: "/app/celulas",
   },
   {
     slug: "visitas-pastorais",

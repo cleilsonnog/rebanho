@@ -56,6 +56,7 @@ const planoItens = [
   "Aniversários automáticos no WhatsApp",
   "Carteirinha com QR Code",
   "Mapa interativo de membros",
+  "Células com presença, visitantes e estudo da semana",
   "Certificados em lote",
   "Módulo financeiro completo",
   "Agenda e eventos",
@@ -72,6 +73,7 @@ const faq = [
   ["E se eu quiser cancelar?", "É só cancelar no painel, sem multa e sem fidelidade. Você pode exportar todos os seus dados antes."],
   ["Minha secretária não tem intimidade com tecnologia.", "As telas usam linguagem de igreja e o atendimento no WhatsApp ajuda na configuração inicial e na importação."],
   ["Como funciona a carteirinha com QR Code?", "Cada carteirinha tem um QR Code que abre uma página pública mostrando nome, igreja e se a membresia está ativa. Não é preciso app para escanear."],
+  ["Dá para acompanhar as células?", "Sim. Cada célula tem líderes, colíderes, anfitrião e membros, e fica no mapa na casa do anfitrião. O pastor ou a secretaria publica o estudo da semana, e o líder marca a presença, os visitantes e as observações de cada reunião. O líder só vê a própria célula e pode imprimir o estudo ou salvá-lo em PDF."],
   ["O que o mapa de membros mostra?", "Mostra os endereços cadastrados agrupados por região. Ao aproximar, você vê os nomes e pode abrir a ficha para planejar visitas e células."],
   ["Meus dados ficam seguros?", "Sim. Usamos conexão criptografada, backup diário e controle de acesso por função. Dados de fé são sensíveis pela LGPD e são tratados com esse cuidado."],
 ]
@@ -170,9 +172,9 @@ export default function LandingPage() {
       {/* Funcionalidades principais */}
       <section className="mx-auto max-w-6xl px-4 pb-20">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-semibold md:text-4xl">Tudo o que a secretaria, a tesouraria e o pastor usam</h2>
+          <h2 className="text-3xl font-semibold md:text-4xl">Tudo o que a secretaria, a tesouraria, o pastor e os líderes de célula usam</h2>
         </div>
-        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((f) => (
             <Link key={f.slug} href={`/funcionalidades/${f.slug}`} className="group">
               <Card className="h-full transition group-hover:-translate-y-0.5 group-hover:border-primary/40 group-hover:shadow-lg">

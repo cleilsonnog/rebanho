@@ -5,7 +5,8 @@ import Link from "next/link"
 import { ArrowLeft, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
-import { CellStudyCard } from "@/components/app/cell-study"
+import { AccessGuard } from "@/components/app/access-guard"
+import { CellStudyCard, PrintStudyButton } from "@/components/app/cell-study"
 import { PageHeader } from "@/components/app/page-header"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -93,7 +94,7 @@ function EstudoForm({ semana, setSemana, study }: { semana: string; setSemana: (
   )
 }
 
-export default function EstudosPage() {
+function EstudosPageContent() {
   const studies = useApp((s) => s.cellStudies)
   const removeCellStudy = useApp((s) => s.removeCellStudy)
   const pode = useApp((s) => canWrite(s.me.papel, "estudos"))
@@ -133,6 +134,7 @@ export default function EstudosPage() {
                   <span className="block truncate font-medium">{s.tema}</span>
                   {s.referencia && <span className="block truncate text-xs text-muted-foreground">{s.referencia}</span>}
                 </button>
+                <PrintStudyButton study={s} iconOnly />
                 {pode && (
                   <Button
                     variant="ghost"
@@ -150,5 +152,13 @@ export default function EstudosPage() {
         </Card>
       </div>
     </>
+  )
+}
+
+export default function EstudosPage() {
+  return (
+    <AccessGuard area="celulas" title="Estudo da semana">
+      <EstudosPageContent />
+    </AccessGuard>
   )
 }

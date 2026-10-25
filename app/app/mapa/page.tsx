@@ -5,6 +5,7 @@ import dynamic from "next/dynamic"
 import { useSearchParams } from "next/navigation"
 import { Loader2 } from "lucide-react"
 
+import { AccessGuard } from "@/components/app/access-guard"
 import { PageHeader } from "@/components/app/page-header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -72,8 +73,10 @@ function MapaContent() {
 
 export default function MapaPage() {
   return (
-    <React.Suspense>
-      <MapaContent />
-    </React.Suspense>
+    <AccessGuard area="mapa" title="Mapa de membros">
+      <React.Suspense>
+        <MapaContent />
+      </React.Suspense>
+    </AccessGuard>
   )
 }

@@ -6,6 +6,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { BookOpen, CalendarCheck, House, Loader2, MapPin, Plus, UserPlus, Users } from "lucide-react"
 
+import { AccessGuard } from "@/components/app/access-guard"
 import { CellFormDialog } from "@/components/app/cell-form"
 import { CellStudyCard } from "@/components/app/cell-study"
 import { MemberAvatar } from "@/components/app/member-avatar"
@@ -25,7 +26,7 @@ const CellsMap = dynamic(() => import("@/components/app/cells-map"), {
 const nomes = (ids: string[], byId: Map<string, { nome: string }>) =>
   ids.map((id) => byId.get(id)?.nome.split(" ")[0]).filter(Boolean).join(" e ") || "—"
 
-export default function CelulasPage() {
+function CelulasPageContent() {
   const router = useRouter()
   const cells = useApp((s) => s.cells)
   const meetings = useApp((s) => s.cellMeetings)
@@ -119,5 +120,13 @@ export default function CelulasPage() {
 
       <CellFormDialog key={String(open)} open={open && pode} onOpenChange={setOpen} onSaved={(c) => router.push(`/app/celulas/${c.id}`)} />
     </>
+  )
+}
+
+export default function CelulasPage() {
+  return (
+    <AccessGuard area="celulas" title="Células">
+      <CelulasPageContent />
+    </AccessGuard>
   )
 }

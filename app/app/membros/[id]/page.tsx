@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { age, formatBRL, formatDate, whatsappLink } from "@/lib/format"
-import { canWrite } from "@/lib/permissions"
+import { canRead, canWrite, memberScope } from "@/lib/permissions"
 import { useApp, useMember } from "@/lib/store"
 
 const ESTADO_CIVIL = { solteiro: "Solteiro(a)", casado: "Casado(a)", divorciado: "Divorciado(a)", viuvo: "Viúvo(a)" }
@@ -33,6 +33,8 @@ export default function MembroPage() {
   const certificates = useApp((s) => s.certificates)
   const celula = useApp((s) => s.cells.find((c) => c.membroIds.includes(id)))
   const podeEditar = useApp((s) => canWrite(s.me.papel, "membros"))
+  const papel = useApp((s) => s.me.papel)
+  const ve = (area: Parameters<typeof canRead>[1]) => canRead(papel, area)
 
   if (!m)
     return (
@@ -70,10 +72,12 @@ export default function MembroPage() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" asChild>
-              <a href={whatsappLink(m.telefone)} target="_blank" rel="noreferrer"><MessageCircle /> WhatsApp</a>
-            </Button>
-            <Button variant="outline" asChild><Link href={`/app/carteirinhas?membro=${m.id}`}><IdCard /> Carteirinha</Link></Button>
+            {m.telefone && (
+              <Button variant="outline" asChild>
+                <a href={whatsappLink(m.telefone)} target="_blank" rel="noreferrer"><MessageCircle /> WhatsApp</a>
+              </Button>
+            )}
+            {ve("certificados") && <Button variant="outline" asChild><Link href={`/app/carteirinhas?membro=${m.id}`}><IdCard /> Carteirinha</Link></Button>}
             {podeEditar && <Button asChild><Link href={`/app/membros/${m.id}/editar`}><Pencil /> Editar</Link></Button>}
           </div>
         </CardContent>
@@ -82,9 +86,9 @@ export default function MembroPage() {
       <Tabs defaultValue="dados" className="mt-6">
         <TabsList>
           <TabsTrigger value="dados">Dados</TabsTrigger>
-          <TabsTrigger value="visitas">Visitas ({minhasVisitas.length})</TabsTrigger>
-          <TabsTrigger value="contribuicoes">Contribuições</TabsTrigger>
-          <TabsTrigger value="documentos">Documentos</TabsTrigger>
+          {ve("visitas") && <TabsTrigger value="visitas">Visitas ({minhasVisitas.length})</TabsTrigger>}
+          {ve("financeiro") && <TabsTrigger value="contribuicoes">Contribuições</TabsTrigger>}
+          {ve("certificados") && <TabsTrigger value="documentos">Documentos</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="dados" className="grid gap-4 lg:grid-cols-3">
@@ -110,6 +114,9 @@ export default function MembroPage() {
           </Card>
           <Card>
             <CardHeader><CardTitle>Contato</CardTitle></CardHeader>
+            {memberScope(papel) === "nome" ? (
+              <CardContent className="text-sm text-muted-foreground">Sua função não tem acesso a endereço e contato.</CardContent>
+            ) : (
             <CardContent className="space-y-3 text-sm">
               <p className="flex items-center gap-2"><Phone className="size-4 text-muted-foreground" /> {m.telefone}</p>
               <p className="flex items-center gap-2"><Mail className="size-4 text-muted-foreground" /> {m.email || "—"}</p>
@@ -121,10 +128,13 @@ export default function MembroPage() {
                   CEP {m.endereco.cep}
                 </span>
               </p>
-              <Button variant="outline" size="sm" className="w-full" asChild>
-                <Link href={`/app/mapa?membro=${m.id}`}>Ver no mapa</Link>
-              </Button>
+              {ve("mapa") && (
+                <Button variant="outline" size="sm" className="w-full" asChild>
+                  <Link href={`/app/mapa?membro=${m.id}`}>Ver no mapa</Link>
+                </Button>
+              )}
             </CardContent>
+            )}
           </Card>
         </TabsContent>
 

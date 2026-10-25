@@ -46,6 +46,10 @@ export default function PrivacidadePage() {
             sistema (os membros cadastrados não passam pelo Clerk). Há, portanto, transferência internacional desses dados
             de login, com as garantias contratuais do fornecedor.
           </li>
+          <li>
+            Para marcar uma célula no mapa, o endereço digitado (rua, número, bairro, cidade e CEP, sem nome de pessoa) é
+            consultado no Nominatim, do OpenStreetMap, e na BrasilAPI. As imagens do mapa vêm do OpenStreetMap.
+          </li>
         </ul>
       </Secao>
 
@@ -54,8 +58,17 @@ export default function PrivacidadePage() {
           <li>Conexão criptografada (HTTPS) entre o navegador, o servidor e o banco de dados.</li>
           <li>Isolamento entre igrejas: cada consulta é limitada à igreja do usuário logado.</li>
           <li>
-            Controle de acesso por função, aplicado no servidor. Por exemplo, os dados financeiros só são enviados ao
-            administrador e à tesouraria.
+            Controle de acesso por função, aplicado no servidor: o que a função não pode ver nem chega ao navegador. Os
+            dados financeiros só vão para o administrador e a tesouraria.
+          </li>
+          <li>
+            Endereços, mapa e anotações de visitas pastorais só vão para o administrador, a secretaria e o pastor. O líder de
+            célula recebe apenas as pessoas da sua célula, sem posição no mapa. A tesouraria recebe só os nomes, sem
+            endereço nem contato.
+          </li>
+          <li>
+            No mapa de membros, o pino fica numa posição aproximada do bairro, não na casa. Só a casa onde a célula se
+            reúne é marcada no ponto exato.
           </li>
           <li>Validação no servidor de todas as informações enviadas pelos formulários.</li>
         </ul>
@@ -72,7 +85,8 @@ export default function PrivacidadePage() {
       <Secao titulo="Compartilhamento">
         <p>
           Não vendemos nem compartilhamos dados para publicidade. Os dados só são acessados pelos fornecedores
-          necessários para o serviço funcionar (hospedagem, banco de dados e login), sempre para essa finalidade.
+          necessários para o serviço funcionar (hospedagem, banco de dados, login e localização no mapa), sempre para essa
+          finalidade.
         </p>
       </Secao>
 

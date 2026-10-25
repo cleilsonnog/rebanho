@@ -3,7 +3,7 @@ import "server-only"
 import { db } from "./db"
 import { ActionError, type Session } from "./church"
 import type * as P from "./generated/prisma/client"
-import { canRead } from "./permissions"
+import { canRead, memberScope } from "./permissions"
 import type {
   AppData,
   AppUser,
@@ -183,27 +183,44 @@ export async function congregationNames(churchId: string) {
   return cs.map((c) => c.nome)
 }
 
+const SEM_ENDERECO = { rua: "", numero: "", bairro: "", cidade: "", uf: "", cep: "" }
+
+/** Tira do membro o que a função não pode ver (ver `memberScope`). */
+function protegerMembro(m: Member, escopo: ReturnType<typeof memberScope>): Member {
+  if (escopo === "completo") return m
+  const semMapa = { ...m, lat: 0, lng: 0, observacoes: undefined }
+  if (escopo === "celula") return semMapa
+  return { ...semMapa, telefone: "", email: "", endereco: SEM_ENDERECO }
+}
+
 /** Carrega os dados da igreja ativa. Cada consulta é filtrada pela igreja e o que a função não pode ver não sai do servidor. */
 export async function loadAppData({ church, user }: Session): Promise<AppData> {
   const churchId = church.id
-  const veFinanceiro = canRead(user.papel, "financeiro")
+  const pode = (area: Parameters<typeof canRead>[1]) => canRead(user.papel, area)
   const admin = user.papel === "admin"
+  const escopo = memberScope(user.papel)
+  // O líder de célula só recebe as pessoas das células que lidera.
+  const membrosWhere = escopo === "celula" ? { churchId, cell: cellScope(user) } : { churchId }
 
   const umAnoAtras = new Date(Date.now() - 365 * 86_400_000)
 
   const [congregacoes, members, visits, transactions, events, certificates, cells, cellMeetings, cellStudies, users] = await Promise.all([
     congregationNames(churchId),
-    db.member.findMany({ where: { churchId }, include: memberInclude, orderBy: { nome: "asc" } }),
-    db.visit.findMany({ where: { churchId }, orderBy: { data: "desc" } }),
-    veFinanceiro ? db.transaction.findMany({ where: { churchId }, orderBy: { data: "desc" } }) : [],
+    db.member.findMany({ where: membrosWhere, include: memberInclude, orderBy: { nome: "asc" } }),
+    pode("visitas") ? db.visit.findMany({ where: { churchId }, orderBy: { data: "desc" } }) : [],
+    pode("financeiro") ? db.transaction.findMany({ where: { churchId }, orderBy: { data: "desc" } }) : [],
     db.event.findMany({ where: { churchId }, orderBy: [{ data: "asc" }, { hora: "asc" }] }),
-    db.certificate.findMany({ where: { churchId }, orderBy: { emitidoEm: "desc" } }),
-    db.cell.findMany({ where: { churchId, ...cellScope(user) }, include: cellInclude, orderBy: { nome: "asc" } }),
-    db.cellMeeting.findMany({
-      where: { churchId, data: { gte: umAnoAtras }, cell: cellScope(user) },
-      include: cellMeetingInclude,
-      orderBy: { data: "desc" },
-    }),
+    pode("certificados") ? db.certificate.findMany({ where: { churchId }, orderBy: { emitidoEm: "desc" } }) : [],
+    pode("celulas")
+      ? db.cell.findMany({ where: { churchId, ...cellScope(user) }, include: cellInclude, orderBy: { nome: "asc" } })
+      : [],
+    pode("celulas")
+      ? db.cellMeeting.findMany({
+          where: { churchId, data: { gte: umAnoAtras }, cell: cellScope(user) },
+          include: cellMeetingInclude,
+          orderBy: { data: "desc" },
+        })
+      : [],
     db.cellStudy.findMany({ where: { churchId, semana: { gte: umAnoAtras } }, orderBy: { semana: "desc" } }),
     admin ? db.churchUser.findMany({ where: { churchId }, orderBy: { createdAt: "asc" } }) : [],
   ])
@@ -211,7 +228,7 @@ export async function loadAppData({ church, user }: Session): Promise<AppData> {
   return {
     me: toUser(user),
     church: toChurch(church, congregacoes),
-    members: members.map(toMember),
+    members: members.map((m) => protegerMembro(toMember(m), escopo)),
     visits: visits.map(toVisit),
     transactions: transactions.map(toTransaction),
     events: events.map(toEvent),

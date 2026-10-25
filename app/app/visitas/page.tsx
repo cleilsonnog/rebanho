@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation"
 import { CalendarCheck, CalendarClock, HeartHandshake, Plus, Trash2, UserMinus } from "lucide-react"
 import { toast } from "sonner"
 
+import { AccessGuard } from "@/components/app/access-guard"
 import { MemberAvatar } from "@/components/app/member-avatar"
 import { MemberPicker } from "@/components/app/member-picker"
 import { PageHeader, StatCard } from "@/components/app/page-header"
@@ -209,8 +210,10 @@ function VisitasContent() {
 
 export default function VisitasPage() {
   return (
-    <React.Suspense>
-      <VisitasContent />
-    </React.Suspense>
+    <AccessGuard area="visitas" title="Visitas pastorais">
+      <React.Suspense>
+        <VisitasContent />
+      </React.Suspense>
+    </AccessGuard>
   )
 }

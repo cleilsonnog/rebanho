@@ -7,6 +7,7 @@ import { useParams, useRouter } from "next/navigation"
 import { ArrowLeft, ClipboardCheck, Loader2, MapPin, MessageCircle, Pencil, Plus, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
 
+import { AccessGuard } from "@/components/app/access-guard"
 import { CellFormDialog } from "@/components/app/cell-form"
 import { CellStudyCard } from "@/components/app/cell-study"
 import { MemberAvatar } from "@/components/app/member-avatar"
@@ -112,7 +113,7 @@ function ReuniaoForm({
         </CardHeader>
         <CardContent className="space-y-6">
           {estudo ? (
-            <CellStudyCard key={estudo.id} study={estudo} />
+            <CellStudyCard key={estudo.id} study={estudo} celula={cell.nome} />
           ) : (
             <p className="rounded-xl border border-dashed p-3 text-sm text-muted-foreground">Nenhum estudo da semana publicado para esta data.</p>
           )}
@@ -209,7 +210,7 @@ function ReuniaoForm({
   )
 }
 
-export default function CelulaPage() {
+function CelulaPageContent() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const cell = useApp((s) => s.cells.find((c) => c.id === id))
@@ -335,5 +336,13 @@ export default function CelulaPage() {
 
       <CellFormDialog key={String(editando)} open={editando && podeCelula} onOpenChange={setEditando} cell={cell} />
     </>
+  )
+}
+
+export default function CelulaPage() {
+  return (
+    <AccessGuard area="celulas" title="Célula">
+      <CelulaPageContent />
+    </AccessGuard>
   )
 }

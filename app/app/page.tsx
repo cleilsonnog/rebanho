@@ -6,6 +6,7 @@ import { useUser } from "@clerk/nextjs"
 import { ArrowRight, Cake, CalendarDays, Droplets, HeartHandshake, Church, UserPlus, Users } from "lucide-react"
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, XAxis, YAxis } from "recharts"
 
+import { CellStudyCard } from "@/components/app/cell-study"
 import { MemberAvatar } from "@/components/app/member-avatar"
 import { PageHeader, StatCard } from "@/components/app/page-header"
 import { Badge } from "@/components/ui/badge"
@@ -19,7 +20,8 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart"
-import { MONTHS, TODAY, age, ageBands, daysUntilBirthday, formatBRL, formatAxisBRL, formatDate, parseISO } from "@/lib/format"
+import { MONTHS, TODAY, age, ageBands, daysUntilBirthday, formatBRL, formatAxisBRL, formatDate, inicioDaSemana, parseISO } from "@/lib/format"
+import { canRead, canWrite } from "@/lib/permissions"
 import { useApp } from "@/lib/store"
 
 const financeConfig = {
@@ -36,6 +38,8 @@ const genderConfig = {
 
 export default function DashboardPage() {
   const { members, transactions, visits, events, church } = useApp()
+  const papel = useApp((s) => s.me.papel)
+  const estudo = useApp((s) => s.cellStudies.find((e) => e.semana === inicioDaSemana(TODAY.toISOString().slice(0, 10))))
   const { user } = useUser()
 
   const data = React.useMemo(() => {
@@ -101,9 +105,11 @@ export default function DashboardPage() {
         title={user?.firstName ? `Olá, ${user.firstName}!` : "Olá!"}
         description={`${church.nome} · ${TODAY.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}`}
       >
-        <Button variant="outline" asChild><Link href="/app/visitas?nova=1"><HeartHandshake /> Registrar visita</Link></Button>
-        <Button asChild><Link href="/app/membros/novo"><UserPlus /> Novo membro</Link></Button>
+        {canWrite(papel, "visitas") && <Button variant="outline" asChild><Link href="/app/visitas?nova=1"><HeartHandshake /> Registrar visita</Link></Button>}
+        {canWrite(papel, "membros") && <Button asChild><Link href="/app/membros/novo"><UserPlus /> Novo membro</Link></Button>}
       </PageHeader>
+
+      {estudo && <CellStudyCard key={estudo.id} study={estudo} className="mb-4" />}
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Membros" value={data.membrosIgreja.length} hint={`${data.ativos.length} ativos · +${data.novosMes} este mês`} icon={Users} />
@@ -237,28 +243,30 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <Card className="mt-4">
-        <CardHeader>
-          <CardTitle>Precisam de atenção</CardTitle>
-          <CardDescription>Membros afastados sem visita nos últimos 60 dias ({data.semVisita.length})</CardDescription>
-          <CardAction>
-            <Button variant="outline" size="sm" asChild><Link href="/app/visitas?nova=1">Agendar visita</Link></Button>
-          </CardAction>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {data.semVisita.slice(0, 9).map((m) => (
-              <Link key={m.id} href={`/app/membros/${m.id}`} className="flex items-center gap-3 rounded-lg border p-3 hover:bg-muted">
-                <MemberAvatar nome={m.nome} className="size-9" />
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{m.nome}</p>
-                  <p className="truncate text-xs text-muted-foreground">{m.endereco.bairro} · membro desde {formatDate(m.membroDesde).slice(-4)}</p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      {canRead(papel, "visitas") && (
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle>Precisam de atenção</CardTitle>
+            <CardDescription>Membros afastados sem visita nos últimos 60 dias ({data.semVisita.length})</CardDescription>
+            <CardAction>
+              <Button variant="outline" size="sm" asChild><Link href="/app/visitas?nova=1">Agendar visita</Link></Button>
+            </CardAction>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {data.semVisita.slice(0, 9).map((m) => (
+                <Link key={m.id} href={`/app/membros/${m.id}`} className="flex items-center gap-3 rounded-lg border p-3 hover:bg-muted">
+                  <MemberAvatar nome={m.nome} className="size-9" />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{m.nome}</p>
+                    <p className="truncate text-xs text-muted-foreground">{m.endereco.bairro} · membro desde {formatDate(m.membroDesde).slice(-4)}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </>
   )
 }

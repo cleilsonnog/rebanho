@@ -86,9 +86,10 @@ export default function MembrosPage() {
   return (
     <>
       <PageHeader title="Membros" description={`${members.length} pessoas cadastradas`}>
-        <Button variant="outline" onClick={exportCSV}><Download /> Exportar</Button>
-        <Button variant="outline" asChild><Link href="/app/importar"><Upload /> Importar</Link></Button>
-        <Button asChild><Link href="/app/membros/novo"><UserPlus /> Novo membro</Link></Button>
+        {/* Exportar tira os dados do sistema: só quem já vê o cadastro completo. */}
+        {pode && <Button variant="outline" onClick={exportCSV}><Download /> Exportar</Button>}
+        {pode && <Button variant="outline" asChild><Link href="/app/importar"><Upload /> Importar</Link></Button>}
+        {pode && <Button asChild><Link href="/app/membros/novo"><UserPlus /> Novo membro</Link></Button>}
       </PageHeader>
 
       <Card className="gap-0 p-0">
@@ -157,10 +158,12 @@ export default function MembrosPage() {
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem asChild><Link href={`/app/membros/${m.id}`}>Abrir ficha</Link></DropdownMenuItem>
                       {pode && <DropdownMenuItem asChild><Link href={`/app/membros/${m.id}/editar`}>Editar</Link></DropdownMenuItem>}
-                      <DropdownMenuItem asChild>
-                        <a href={whatsappLink(m.telefone)} target="_blank" rel="noreferrer">WhatsApp</a>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild><Link href={`/app/carteirinhas?membro=${m.id}`}>Carteirinha</Link></DropdownMenuItem>
+                      {m.telefone && (
+                        <DropdownMenuItem asChild>
+                          <a href={whatsappLink(m.telefone)} target="_blank" rel="noreferrer">WhatsApp</a>
+                        </DropdownMenuItem>
+                      )}
+                      {pode && <DropdownMenuItem asChild><Link href={`/app/carteirinhas?membro=${m.id}`}>Carteirinha</Link></DropdownMenuItem>}
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         hidden={!pode}

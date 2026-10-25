@@ -84,6 +84,11 @@ const NAV = [
 /** Esconde do menu o que a função não usa. O servidor bloqueia de qualquer forma. */
 const VISIVEL: Record<string, (papel: UserRole) => boolean> = {
   "/app/importar": (p) => canWrite(p, "membros"),
+  "/app/visitas": (p) => canRead(p, "visitas"),
+  "/app/mapa": (p) => canRead(p, "mapa"),
+  "/app/carteirinhas": (p) => canRead(p, "certificados"),
+  "/app/certificados": (p) => canRead(p, "certificados"),
+  "/app/celulas": (p) => canRead(p, "celulas"),
   "/app/financeiro": (p) => canRead(p, "financeiro"),
   "/app/whatsapp": (p) => p === "admin",
   "/app/configuracoes": (p) => p === "admin",

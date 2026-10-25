@@ -35,11 +35,13 @@ function Row({ m, dias, data, tipo, mensagem }: { m: Member; dias: number; data:
         </p>
       </div>
       {dias === 0 ? <Badge>Hoje</Badge> : dias <= 7 ? <Badge variant="secondary">em {dias}d</Badge> : null}
-      <Button size="sm" variant="outline" asChild>
-        <a href={whatsappLink(m.telefone, mensagem)} target="_blank" rel="noreferrer">
-          <MessageCircle /> <span className="hidden sm:inline">Parabenizar</span>
-        </a>
-      </Button>
+      {m.telefone && (
+        <Button size="sm" variant="outline" asChild>
+          <a href={whatsappLink(m.telefone, mensagem)} target="_blank" rel="noreferrer">
+            <MessageCircle /> <span className="hidden sm:inline">Parabenizar</span>
+          </a>
+        </Button>
+      )}
     </div>
   )
 }

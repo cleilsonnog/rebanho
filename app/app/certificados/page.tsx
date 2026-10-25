@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation"
 import { Printer, Search } from "lucide-react"
 import { toast } from "sonner"
 
+import { AccessGuard } from "@/components/app/access-guard"
 import { MemberAvatar } from "@/components/app/member-avatar"
 import { PageHeader } from "@/components/app/page-header"
 import { LogoMark } from "@/components/brand"
@@ -207,8 +208,10 @@ function CertificadosContent() {
 
 export default function CertificadosPage() {
   return (
-    <React.Suspense>
-      <CertificadosContent />
-    </React.Suspense>
+    <AccessGuard area="certificados" title="Certificados">
+      <React.Suspense>
+        <CertificadosContent />
+      </React.Suspense>
+    </AccessGuard>
   )
 }

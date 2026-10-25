@@ -4,6 +4,7 @@ import * as React from "react"
 import { useSearchParams } from "next/navigation"
 import { ExternalLink, Printer, Search } from "lucide-react"
 
+import { AccessGuard } from "@/components/app/access-guard"
 import { MemberCardBack, MemberCardFront } from "@/components/app/member-card"
 import { MemberAvatar } from "@/components/app/member-avatar"
 import { PageHeader } from "@/components/app/page-header"
@@ -111,8 +112,10 @@ function CarteirinhasContent() {
 
 export default function CarteirinhasPage() {
   return (
-    <React.Suspense>
-      <CarteirinhasContent />
-    </React.Suspense>
+    <AccessGuard area="certificados" title="Carteirinhas">
+      <React.Suspense>
+        <CarteirinhasContent />
+      </React.Suspense>
+    </AccessGuard>
   )
 }
