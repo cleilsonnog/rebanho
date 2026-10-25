@@ -11,6 +11,7 @@ const date = (iso: string) => new Date(`${iso}T00:00:00Z`)
 export async function clearChurchData(tx: Prisma.TransactionClient, churchId: string) {
   const where = { churchId }
   await tx.cell.deleteMany({ where })
+  await tx.cellStudy.deleteMany({ where })
   await tx.visit.deleteMany({ where })
   await tx.certificate.deleteMany({ where })
   await tx.transaction.deleteMany({ where })
@@ -72,7 +73,39 @@ export async function insertDemoData(tx: Prisma.TransactionClient, churchId: str
   })
 
   await insertDemoCells(tx, churchId, (id) => memberId.get(id)!)
+  await tx.cellStudy.createMany({ data: ESTUDOS.map(({ semana, ...e }) => ({ ...e, churchId, semana: date(semana) })) })
 }
+
+const ESTUDOS = [
+  {
+    semana: "2026-10-26",
+    tema: "Perseverar na oração",
+    referencia: "Lucas 18:1-8",
+    texto:
+      "Quebra-gelo: conte de uma oração que demorou a ser respondida.\n\nLeitura: Lucas 18:1-8.\n\n1. Por que Jesus conta essa parábola?\n2. O que a insistência da viúva ensina sobre a nossa oração?\n3. Quais pedidos você tem deixado de apresentar a Deus?\n\nDesafio da semana: escolha um pedido e ore por ele todos os dias.",
+  },
+  {
+    semana: "2026-10-19",
+    tema: "O bom pastor",
+    referencia: "João 10:1-18",
+    texto:
+      "Quebra-gelo: quem cuidou de você quando você era criança?\n\nLeitura: João 10:1-18.\n\n1. Como o bom pastor se diferencia do mercenário?\n2. O que significa conhecer a voz do pastor?\n3. Quem, perto de você, precisa ser cuidado nesta semana?\n\nDesafio da semana: visite ou ligue para alguém que está afastado.",
+  },
+  {
+    semana: "2026-10-12",
+    tema: "Alegria em qualquer situação",
+    referencia: "Filipenses 4:4-13",
+    texto:
+      "Quebra-gelo: o que te deixou alegre nesta semana?\n\nLeitura: Filipenses 4:4-13.\n\n1. Paulo escreve da prisão. De onde vem a alegria dele?\n2. Como trocar a ansiedade pela oração com gratidão?\n3. Em que área você precisa aprender a ter contentamento?\n\nDesafio da semana: anote três motivos de gratidão por dia.",
+  },
+  {
+    semana: "2026-10-05",
+    tema: "Uma igreja nas casas",
+    referencia: "Atos 2:42-47",
+    texto:
+      "Quebra-gelo: qual refeição em família você nunca esqueceu?\n\nLeitura: Atos 2:42-47.\n\n1. Quais eram as práticas da igreja primitiva?\n2. Por que as casas eram tão importantes?\n3. Quem podemos convidar para a próxima reunião?\n\nDesafio da semana: convide um vizinho para a célula.",
+  },
+]
 
 const CELULAS = [
   { nome: "Betesda", diaSemana: 3, horario: "19:30" },
@@ -124,7 +157,12 @@ async function insertDemoCells(tx: Prisma.TransactionClient, churchId: string, n
           churchId,
           cellId: cell.id,
           data: new Date(ultima.getTime() - s * 7 * 86_400_000),
-          observacoes: ["Estudo sobre Filipenses 4. Pedidos de oração pela família do anfitrião.", "Noite de louvor e testemunhos.", "Estudo: o bom pastor (João 10).", ""][s],
+          observacoes: [
+            "Boa participação no estudo. Pedidos de oração pela família do anfitrião.",
+            "Noite de louvor e testemunhos.",
+            "Dois membros justificaram a falta por viagem.",
+            "",
+          ][s],
           visitantes: s % 2 === 0 ? { create: [{ nome: "Carla Mendonça", telefone: "(62) 98123-4455" }] } : undefined,
         },
       })

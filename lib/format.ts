@@ -65,9 +65,9 @@ export const ROLE_LABEL: Record<UserRole, string> = {
 
 export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   admin: ["Tudo, inclusive usuários e plano"],
-  secretaria: ["Membros", "Visitas", "Células", "Certificados", "Carteirinhas", "Agenda"],
+  secretaria: ["Membros", "Visitas", "Células", "Estudo da semana", "Certificados", "Carteirinhas", "Agenda"],
   tesouraria: ["Financeiro", "Relatórios financeiros"],
-  pastor: ["Membros", "Visitas", "Reuniões de célula", "Mapa", "Aniversários", "Agenda"],
+  pastor: ["Membros", "Visitas", "Estudo da semana", "Reuniões de célula", "Mapa", "Aniversários", "Agenda"],
   lider: ["Reuniões da sua célula: presença, visitantes e observações", "Agenda"],
 }
 
@@ -101,6 +101,21 @@ export const STATUS_COLOR: Record<MemberStatus, string> = {
 }
 
 export const DIAS_SEMANA = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"]
+
+/** Segunda-feira da semana da data (aaaa-mm-dd). As semanas vão de segunda a domingo. */
+export function inicioDaSemana(iso: string) {
+  const d = new Date(`${iso}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7))
+  return d.toISOString().slice(0, 10)
+}
+
+/** "19/10 a 25/10" */
+export function periodoDaSemana(semana: string) {
+  const d = new Date(`${semana}T12:00:00Z`)
+  const fim = new Date(d.getTime() + 6 * 86_400_000)
+  const f = (x: Date) => x.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "UTC" })
+  return `${f(d)} a ${f(fim)}`
+}
 
 /** "Quarta · 19:30" */
 export const cellSchedule = (c: { diaSemana?: number; horario: string }) =>

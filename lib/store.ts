@@ -12,7 +12,7 @@ import * as finance from "./actions/finance"
 import * as members from "./actions/members"
 import * as users from "./actions/users"
 import * as visits from "./actions/visits"
-import type { AppData, AppUser, Cell, CellMeeting, Church, ChurchEvent, IssuedCertificate, Member, Transaction, Visit, WhatsAppSettings } from "./types"
+import type { AppData, AppUser, Cell, CellMeeting, CellStudy, Church, ChurchEvent, IssuedCertificate, Member, Transaction, Visit, WhatsAppSettings } from "./types"
 
 type Input<F extends (...args: never[]) => unknown> = Parameters<F>[0]
 
@@ -38,6 +38,8 @@ interface AppState extends AppData {
   removeCell: (id: string) => Promise<ActionResult>
   saveCellMeeting: (m: Input<typeof cells.saveCellMeeting>) => Promise<ActionResult<CellMeeting>>
   removeCellMeeting: (id: string) => Promise<ActionResult>
+  saveCellStudy: (e: Input<typeof cells.saveCellStudy>) => Promise<ActionResult<CellStudy>>
+  removeCellStudy: (id: string) => Promise<ActionResult>
 
   addCertificates: (c: Input<typeof certificates.issueCertificates>) => Promise<ActionResult<IssuedCertificate[]>>
 
@@ -119,6 +121,14 @@ function createAppStore(data: AppData) {
       ),
     removeCellMeeting: (id) =>
       apply(cells.deleteCellMeeting(id), () => set((s) => ({ cellMeetings: s.cellMeetings.filter((r) => r.id !== id) }))),
+    saveCellStudy: (e) =>
+      apply(cells.saveCellStudy(e), (st) =>
+        set((s) => ({
+          cellStudies: [st, ...s.cellStudies.filter((x) => x.id !== st.id)].sort((a, b) => b.semana.localeCompare(a.semana)),
+        }))
+      ),
+    removeCellStudy: (id) =>
+      apply(cells.deleteCellStudy(id), () => set((s) => ({ cellStudies: s.cellStudies.filter((x) => x.id !== id) }))),
 
     addCertificates: (c) =>
       apply(certificates.issueCertificates(c), (cs) => set((s) => ({ certificates: [...cs, ...s.certificates] }))),

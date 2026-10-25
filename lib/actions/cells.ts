@@ -5,10 +5,11 @@ import { z } from "zod"
 import { secureAction } from "../action"
 import { ActionError, type Session } from "../church"
 import { db } from "../db"
-import { assertMembers, cellInclude, cellScope, cellMeetingInclude, toCell, toCellMeeting, toDate } from "../data"
+import { assertMembers, cellInclude, cellScope, cellMeetingInclude, toCell, toCellMeeting, toCellStudy, toDate } from "../data"
+import { inicioDaSemana } from "../format"
 import type { CellRole } from "../generated/prisma/client"
 import { limitar } from "../rate-limit"
-import { cellMeetingSchema, cellSchema, geocodeSchema, idSchema } from "../validations"
+import { cellMeetingSchema, cellSchema, cellStudySchema, geocodeSchema, idSchema } from "../validations"
 
 type CellData = z.output<typeof cellSchema>
 
@@ -93,6 +94,25 @@ export async function saveCellMeeting(input: z.input<typeof cellMeetingSchema>) 
 export async function deleteCellMeeting(id: string) {
   return secureAction("reunioes", idSchema, id, async (id, { church, user }) => {
     await db.cellMeeting.delete({ where: { id, churchId: church.id, cell: cellScope(user) } })
+  })
+}
+
+/** Publica (ou corrige) o estudo da semana, que vale para todas as células. */
+export async function saveCellStudy(input: z.input<typeof cellStudySchema>) {
+  return secureAction("estudos", cellStudySchema, input, async ({ semana, ...e }, { church }) => {
+    const inicio = toDate(inicioDaSemana(semana))
+    const row = await db.cellStudy.upsert({
+      where: { churchId_semana: { churchId: church.id, semana: inicio } },
+      create: { ...e, churchId: church.id, semana: inicio },
+      update: e,
+    })
+    return toCellStudy(row)
+  })
+}
+
+export async function deleteCellStudy(id: string) {
+  return secureAction("estudos", idSchema, id, async (id, { church }) => {
+    await db.cellStudy.delete({ where: { id, churchId: church.id } })
   })
 }
 

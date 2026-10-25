@@ -106,6 +106,15 @@ export interface CellMeeting {
   observacoes: string
 }
 
+export interface CellStudy {
+  id: string
+  /** Segunda-feira da semana (aaaa-mm-dd). */
+  semana: string
+  tema: string
+  referencia: string
+  texto: string
+}
+
 export type UserRole = "admin" | "secretaria" | "tesouraria" | "pastor" | "lider"
 
 export interface AppUser {
@@ -151,6 +160,8 @@ export interface AppData {
   cells: Cell[]
   /** Reuniões dos últimos 12 meses. */
   cellMeetings: CellMeeting[]
+  /** Estudos da semana dos últimos 12 meses e os já programados. */
+  cellStudies: CellStudy[]
   users: AppUser[]
   whatsapp: WhatsAppSettings
 }

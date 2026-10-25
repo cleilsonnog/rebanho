@@ -8,6 +8,7 @@ import { ArrowLeft, ClipboardCheck, Loader2, MapPin, MessageCircle, Pencil, Plus
 import { toast } from "sonner"
 
 import { CellFormDialog } from "@/components/app/cell-form"
+import { CellStudyCard } from "@/components/app/cell-study"
 import { MemberAvatar } from "@/components/app/member-avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -17,7 +18,7 @@ import { Field, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { notify, useFormAction } from "@/hooks/use-form-action"
-import { TODAY, cellSchedule, formatDate, whatsappLink } from "@/lib/format"
+import { TODAY, cellSchedule, formatDate, inicioDaSemana, whatsappLink } from "@/lib/format"
 import { canWrite } from "@/lib/permissions"
 import { useApp } from "@/lib/store"
 import type { Cell, CellMeeting, CellVisitor, Member } from "@/lib/types"
@@ -80,6 +81,7 @@ function ReuniaoForm({
   pode: boolean
 }) {
   const saveCellMeeting = useApp((s) => s.saveCellMeeting)
+  const estudo = useApp((s) => s.cellStudies.find((e) => e.semana === inicioDaSemana(data)))
   const { errors, pending, submit, invalid } = useFormAction()
   const [presentes, setPresentes] = React.useState<string[]>(meeting?.presentes ?? [])
   const [visitantes, setVisitantes] = React.useState<CellVisitor[]>(meeting?.visitantes ?? [])
@@ -109,6 +111,11 @@ function ReuniaoForm({
           </Field>
         </CardHeader>
         <CardContent className="space-y-6">
+          {estudo ? (
+            <CellStudyCard key={estudo.id} study={estudo} />
+          ) : (
+            <p className="rounded-xl border border-dashed p-3 text-sm text-muted-foreground">Nenhum estudo da semana publicado para esta data.</p>
+          )}
           <div>
             <div className="mb-2 flex items-center justify-between gap-2">
               <p className="text-sm font-medium">Presença · {presentes.length} de {pessoas.length}</p>

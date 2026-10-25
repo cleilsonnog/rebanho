@@ -167,6 +167,14 @@ export const cellMeetingSchema = z.object({
   observacoes: texto(4000),
 })
 
+export const cellStudySchema = z.object({
+  /** Qualquer dia da semana; o servidor guarda a segunda-feira. */
+  semana: data,
+  tema: obrigatorio(120, "Tema"),
+  referencia: texto(120),
+  texto: obrigatorio(20_000, "Estudo"),
+})
+
 export const geocodeSchema = enderecoSchema
 
 export const churchSchema = z.object({

@@ -9,6 +9,7 @@ import type {
   AppUser,
   Cell,
   CellMeeting,
+  CellStudy,
   Church,
   ChurchEvent,
   IssuedCertificate,
@@ -131,6 +132,14 @@ export const toCellMeeting = (
   observacoes: r.observacoes,
 })
 
+export const toCellStudy = (r: P.CellStudy): CellStudy => ({
+  id: r.id,
+  semana: toISO(r.semana),
+  tema: r.tema,
+  referencia: r.referencia,
+  texto: r.texto,
+})
+
 export const toUser = (r: P.ChurchUser): AppUser => ({
   id: r.id,
   nome: r.nome,
@@ -182,7 +191,7 @@ export async function loadAppData({ church, user }: Session): Promise<AppData> {
 
   const umAnoAtras = new Date(Date.now() - 365 * 86_400_000)
 
-  const [congregacoes, members, visits, transactions, events, certificates, cells, cellMeetings, users] = await Promise.all([
+  const [congregacoes, members, visits, transactions, events, certificates, cells, cellMeetings, cellStudies, users] = await Promise.all([
     congregationNames(churchId),
     db.member.findMany({ where: { churchId }, include: memberInclude, orderBy: { nome: "asc" } }),
     db.visit.findMany({ where: { churchId }, orderBy: { data: "desc" } }),
@@ -195,6 +204,7 @@ export async function loadAppData({ church, user }: Session): Promise<AppData> {
       include: cellMeetingInclude,
       orderBy: { data: "desc" },
     }),
+    db.cellStudy.findMany({ where: { churchId, semana: { gte: umAnoAtras } }, orderBy: { semana: "desc" } }),
     admin ? db.churchUser.findMany({ where: { churchId }, orderBy: { createdAt: "asc" } }) : [],
   ])
 
@@ -208,6 +218,7 @@ export async function loadAppData({ church, user }: Session): Promise<AppData> {
     certificates: certificates.map(toCertificate),
     cells: cells.map(toCell),
     cellMeetings: cellMeetings.map(toCellMeeting),
+    cellStudies: cellStudies.map(toCellStudy),
     users: users.map(toUser),
     whatsapp: toWhatsApp(church),
   }

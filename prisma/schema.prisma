@@ -42,6 +42,7 @@ model Church {
   certificates  Certificate[]
   cells         Cell[]
   cellMeetings  CellMeeting[]
+  cellStudies   CellStudy[]
 }
 
 enum UserRole {
@@ -315,6 +316,22 @@ model CellVisitor {
   meeting   CellMeeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   nome      String
   telefone  String      @default("")
+}
+
+/// Estudo da semana, publicado pelo pastor ou pela secretaria para todas as células.
+model CellStudy {
+  id         String   @id @default(cuid())
+  churchId   String
+  church     Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  /// Segunda-feira da semana do estudo.
+  semana     DateTime @db.Date
+  tema       String
+  referencia String   @default("")
+  texto      String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([churchId, semana])
 }
 
 /// Contador do rate limit: quantas vezes `key` agiu na janela que começa em `windowStart`.

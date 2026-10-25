@@ -7,15 +7,16 @@ export type Area =
   | "agenda"
   | "celulas"
   | "reunioes"
+  | "estudos"
   | "financeiro"
   | "whatsapp"
   | "configuracoes"
 
 /** O que cada função pode alterar. O admin pode tudo. Usado no servidor (vale) e na tela (só esconde botões). */
 const ESCRITA: Record<Exclude<UserRole, "admin">, Area[]> = {
-  secretaria: ["membros", "visitas", "certificados", "agenda", "celulas", "reunioes"],
+  secretaria: ["membros", "visitas", "certificados", "agenda", "celulas", "reunioes", "estudos"],
   tesouraria: ["financeiro"],
-  pastor: ["membros", "visitas", "agenda", "reunioes"],
+  pastor: ["membros", "visitas", "agenda", "reunioes", "estudos"],
   // Líder de célula: lança as reuniões só das células que lidera (filtro em lib/data.ts › cellScope).
   // Montar a célula (liderança e membros) é da secretaria.
   lider: ["agenda", "reunioes"],

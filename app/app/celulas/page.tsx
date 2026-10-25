@@ -4,15 +4,16 @@ import * as React from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { CalendarCheck, House, Loader2, MapPin, Plus, UserPlus, Users } from "lucide-react"
+import { BookOpen, CalendarCheck, House, Loader2, MapPin, Plus, UserPlus, Users } from "lucide-react"
 
 import { CellFormDialog } from "@/components/app/cell-form"
+import { CellStudyCard } from "@/components/app/cell-study"
 import { MemberAvatar } from "@/components/app/member-avatar"
 import { PageHeader, StatCard } from "@/components/app/page-header"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { cellSchedule, formatDate } from "@/lib/format"
+import { TODAY, cellSchedule, formatDate, inicioDaSemana } from "@/lib/format"
 import { canWrite } from "@/lib/permissions"
 import { useApp } from "@/lib/store"
 
@@ -31,6 +32,8 @@ export default function CelulasPage() {
   const members = useApp((s) => s.members)
   const pode = useApp((s) => canWrite(s.me.papel, "celulas"))
   const me = useApp((s) => s.me)
+  const podeEstudo = useApp((s) => canWrite(s.me.papel, "estudos"))
+  const estudo = useApp((s) => s.cellStudies.find((e) => e.semana === inicioDaSemana(TODAY.toISOString().slice(0, 10))))
   const [open, setOpen] = React.useState(false)
   const byId = React.useMemo(() => new Map(members.map((m) => [m.id, m])), [members])
 
@@ -44,8 +47,18 @@ export default function CelulasPage() {
   return (
     <>
       <PageHeader title="Células" description="Liderança, presença, visitantes e a casa de cada célula no mapa.">
+        <Button variant="outline" asChild><Link href="/app/celulas/estudos"><BookOpen /> Estudo da semana</Link></Button>
         {pode && <Button onClick={() => setOpen(true)}><Plus /> Nova célula</Button>}
       </PageHeader>
+
+      {estudo ? (
+        <CellStudyCard key={estudo.id} study={estudo} className="mb-4" />
+      ) : (
+        <p className="mb-4 rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+          Nenhum estudo publicado para esta semana.
+          {podeEstudo && <> <Link href="/app/celulas/estudos" className="font-medium text-primary hover:underline">Publicar estudo</Link></>}
+        </p>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Células" value={cells.length} icon={House} />
