@@ -7,6 +7,8 @@ import { canRead } from "./permissions"
 import type {
   AppData,
   AppUser,
+  Cell,
+  CellMeeting,
   Church,
   ChurchEvent,
   IssuedCertificate,
@@ -86,6 +88,49 @@ export const toCertificate = (r: P.Certificate): IssuedCertificate => ({
   detalhe: r.detalhe,
 })
 
+export const cellInclude = {
+  leaders: { select: { memberId: true, funcao: true } },
+  members: { select: { id: true }, orderBy: { nome: "asc" } },
+} as const
+
+type CellRow = P.Cell & {
+  leaders: { memberId: string; funcao: P.CellRole }[]
+  members: { id: string }[]
+}
+
+export function toCell(r: CellRow): Cell {
+  const funcao = (f: P.CellRole) => r.leaders.filter((l) => l.funcao === f).map((l) => l.memberId)
+  return {
+    id: r.id,
+    nome: r.nome,
+    diaSemana: r.diaSemana ?? undefined,
+    horario: r.horario,
+    endereco: { rua: r.rua, numero: r.numero, bairro: r.bairro, cidade: r.cidade, uf: r.uf.trim(), cep: r.cep },
+    lat: r.lat ?? 0,
+    lng: r.lng ?? 0,
+    lideres: funcao("lider"),
+    colideres: funcao("colider"),
+    anfitrioes: funcao("anfitriao"),
+    membroIds: r.members.map((m) => m.id),
+  }
+}
+
+export const cellMeetingInclude = {
+  presencas: { select: { memberId: true } },
+  visitantes: { select: { nome: true, telefone: true }, orderBy: { id: "asc" } },
+} as const
+
+export const toCellMeeting = (
+  r: P.CellMeeting & { presencas: { memberId: string }[]; visitantes: { nome: string; telefone: string }[] }
+): CellMeeting => ({
+  id: r.id,
+  celulaId: r.cellId,
+  data: toISO(r.data),
+  presentes: r.presencas.map((p) => p.memberId),
+  visitantes: r.visitantes,
+  observacoes: r.observacoes,
+})
+
 export const toUser = (r: P.ChurchUser): AppUser => ({
   id: r.id,
   nome: r.nome,
@@ -93,7 +138,17 @@ export const toUser = (r: P.ChurchUser): AppUser => ({
   papel: r.papel,
   ativo: r.ativo,
   pendente: !r.clerkUserId,
+  memberId: r.memberId ?? undefined,
 })
+
+/**
+ * Células que o usuário pode ver e lançar reunião. O líder de célula só aquelas em que é líder ou colíder
+ * (pelo cadastro de membro ligado ao usuário); as outras funções, todas.
+ */
+export function cellScope(user: P.ChurchUser): P.Prisma.CellWhereInput {
+  if (user.papel !== "lider") return {}
+  return { leaders: { some: { memberId: user.memberId ?? "-", funcao: { in: ["lider", "colider"] } } } }
+}
 
 export const toChurch = (r: P.Church, congregacoes: string[]): Church => ({
   nome: r.nome,
@@ -125,13 +180,21 @@ export async function loadAppData({ church, user }: Session): Promise<AppData> {
   const veFinanceiro = canRead(user.papel, "financeiro")
   const admin = user.papel === "admin"
 
-  const [congregacoes, members, visits, transactions, events, certificates, users] = await Promise.all([
+  const umAnoAtras = new Date(Date.now() - 365 * 86_400_000)
+
+  const [congregacoes, members, visits, transactions, events, certificates, cells, cellMeetings, users] = await Promise.all([
     congregationNames(churchId),
     db.member.findMany({ where: { churchId }, include: memberInclude, orderBy: { nome: "asc" } }),
     db.visit.findMany({ where: { churchId }, orderBy: { data: "desc" } }),
     veFinanceiro ? db.transaction.findMany({ where: { churchId }, orderBy: { data: "desc" } }) : [],
     db.event.findMany({ where: { churchId }, orderBy: [{ data: "asc" }, { hora: "asc" }] }),
     db.certificate.findMany({ where: { churchId }, orderBy: { emitidoEm: "desc" } }),
+    db.cell.findMany({ where: { churchId, ...cellScope(user) }, include: cellInclude, orderBy: { nome: "asc" } }),
+    db.cellMeeting.findMany({
+      where: { churchId, data: { gte: umAnoAtras }, cell: cellScope(user) },
+      include: cellMeetingInclude,
+      orderBy: { data: "desc" },
+    }),
     admin ? db.churchUser.findMany({ where: { churchId }, orderBy: { createdAt: "asc" } }) : [],
   ])
 
@@ -143,6 +206,8 @@ export async function loadAppData({ church, user }: Session): Promise<AppData> {
     transactions: transactions.map(toTransaction),
     events: events.map(toEvent),
     certificates: certificates.map(toCertificate),
+    cells: cells.map(toCell),
+    cellMeetings: cellMeetings.map(toCellMeeting),
     users: users.map(toUser),
     whatsapp: toWhatsApp(church),
   }

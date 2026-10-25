@@ -7,17 +7,18 @@ import { clerkClient } from "@clerk/nextjs/server"
 import { secureAction } from "../action"
 import { ActionError } from "../church"
 import { db } from "../db"
-import { toUser } from "../data"
+import { assertMembers, toUser } from "../data"
 import { limitar } from "../rate-limit"
 import { idSchema, inviteSchema, updateUserSchema } from "../validations"
 
 // Gestão de usuários é só do admin (área `null` no secureAction).
 
 export async function inviteUser(input: z.input<typeof inviteSchema>) {
-  return secureAction(null, inviteSchema, input, async ({ nome, email, papel }, { church, user }) => {
+  return secureAction(null, inviteSchema, input, async ({ nome, email, papel, memberId }, { church, user }) => {
     if (!church.clerkOrgId) throw new ActionError("Igreja sem organização no Clerk.")
+    if (memberId) await assertMembers(church.id, [memberId])
     await limitar("convite", church.id)
-    const row = await db.churchUser.create({ data: { churchId: church.id, nome, email: email.toLowerCase(), papel } })
+    const row = await db.churchUser.create({ data: { churchId: church.id, nome, email: email.toLowerCase(), papel, memberId } })
 
     // O link do e-mail volta para o login do Rebanho (o <SignIn /> trata o convite), e não para a página padrão do Clerk.
     const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_APP_URL
@@ -44,7 +45,8 @@ export async function updateUser(id: string, input: z.input<typeof updateUserSch
   const schema = updateUserSchema.extend({ id: idSchema })
   return secureAction(null, schema, { ...input, id }, async ({ id, ...data }, { church, user }) => {
     // Impede o admin de se rebaixar ou se desativar e deixar a igreja sem administrador.
-    if (id === user.id) throw new ActionError("Você não pode alterar o seu próprio acesso.")
+    if (id === user.id && (data.papel || data.ativo !== undefined)) throw new ActionError("Você não pode alterar o seu próprio acesso.")
+    if (data.memberId) await assertMembers(church.id, [data.memberId])
     return toUser(await db.churchUser.update({ where: { id, churchId: church.id }, data }))
   })
 }

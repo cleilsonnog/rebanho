@@ -75,6 +75,37 @@ export interface IssuedCertificate {
 
 export type CertificateStyle = "classico" | "moderno" | "minimalista"
 
+export interface Cell {
+  id: string
+  nome: string
+  /** 0 = domingo … 6 = sábado */
+  diaSemana?: number
+  horario: string
+  endereco: Endereco
+  /** Posição da casa do anfitrião; 0/0 quando ainda não foi marcada. */
+  lat: number
+  lng: number
+  /** Até duas pessoas (um casal) em cada função. */
+  lideres: string[]
+  colideres: string[]
+  anfitrioes: string[]
+  membroIds: string[]
+}
+
+export interface CellVisitor {
+  nome: string
+  telefone: string
+}
+
+export interface CellMeeting {
+  id: string
+  celulaId: string
+  data: string
+  presentes: string[]
+  visitantes: CellVisitor[]
+  observacoes: string
+}
+
 export type UserRole = "admin" | "secretaria" | "tesouraria" | "pastor" | "lider"
 
 export interface AppUser {
@@ -85,6 +116,8 @@ export interface AppUser {
   ativo: boolean
   /** Convidado que ainda não fez o primeiro acesso. */
   pendente: boolean
+  /** Cadastro de membro da pessoa; é o que liga o líder de célula às células dele. */
+  memberId?: string
 }
 
 export interface Church {
@@ -115,6 +148,9 @@ export interface AppData {
   transactions: Transaction[]
   events: ChurchEvent[]
   certificates: IssuedCertificate[]
+  cells: Cell[]
+  /** Reuniões dos últimos 12 meses. */
+  cellMeetings: CellMeeting[]
   users: AppUser[]
   whatsapp: WhatsAppSettings
 }

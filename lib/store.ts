@@ -4,6 +4,7 @@ import * as React from "react"
 import { createStore, useStore, type StoreApi } from "zustand"
 
 import type { ActionResult } from "./action"
+import * as cells from "./actions/cells"
 import * as certificates from "./actions/certificates"
 import * as church from "./actions/church"
 import * as events from "./actions/events"
@@ -11,7 +12,7 @@ import * as finance from "./actions/finance"
 import * as members from "./actions/members"
 import * as users from "./actions/users"
 import * as visits from "./actions/visits"
-import type { AppData, AppUser, Church, ChurchEvent, IssuedCertificate, Member, Transaction, Visit, WhatsAppSettings } from "./types"
+import type { AppData, AppUser, Cell, CellMeeting, Church, ChurchEvent, IssuedCertificate, Member, Transaction, Visit, WhatsAppSettings } from "./types"
 
 type Input<F extends (...args: never[]) => unknown> = Parameters<F>[0]
 
@@ -32,6 +33,12 @@ interface AppState extends AppData {
   addEvent: (e: Input<typeof events.createEvent>) => Promise<ActionResult<ChurchEvent>>
   removeEvent: (id: string) => Promise<ActionResult>
 
+  addCell: (c: Input<typeof cells.createCell>) => Promise<ActionResult<Cell>>
+  updateCell: (id: string, c: Input<typeof cells.createCell>) => Promise<ActionResult<Cell>>
+  removeCell: (id: string) => Promise<ActionResult>
+  saveCellMeeting: (m: Input<typeof cells.saveCellMeeting>) => Promise<ActionResult<CellMeeting>>
+  removeCellMeeting: (id: string) => Promise<ActionResult>
+
   addCertificates: (c: Input<typeof certificates.issueCertificates>) => Promise<ActionResult<IssuedCertificate[]>>
 
   updateChurch: (c: Input<typeof church.updateChurch>) => Promise<ActionResult<Church>>
@@ -50,6 +57,15 @@ async function apply<T>(p: Promise<ActionResult<T>>, onOk: (data: T) => void) {
   return r
 }
 
+/** Coloca a célula salva na lista; quem entrou nela sai da célula em que estava. */
+function putCell(list: Cell[], cell: Cell) {
+  const nela = new Set(cell.membroIds)
+  const outras = list.filter((c) => c.id !== cell.id).map((c) => ({ ...c, membroIds: c.membroIds.filter((id) => !nela.has(id)) }))
+  return [...outras, cell].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
+}
+
+const semPessoa = (id: string) => (ids: string[]) => ids.filter((x) => x !== id)
+
 const byDateDesc = <T extends { data: string }>(xs: T[]) => xs.sort((a, b) => b.data.localeCompare(a.data))
 
 function createAppStore(data: AppData) {
@@ -66,6 +82,14 @@ function createAppStore(data: AppData) {
           members: s.members.filter((x) => x.id !== id),
           visits: s.visits.filter((v) => v.membroId !== id),
           certificates: s.certificates.filter((c) => c.membroId !== id),
+          cells: s.cells.map((c) => ({
+            ...c,
+            lideres: semPessoa(id)(c.lideres),
+            colideres: semPessoa(id)(c.colideres),
+            anfitrioes: semPessoa(id)(c.anfitrioes),
+            membroIds: semPessoa(id)(c.membroIds),
+          })),
+          cellMeetings: s.cellMeetings.map((r) => ({ ...r, presentes: semPessoa(id)(r.presentes) })),
         }))
       ),
 
@@ -82,6 +106,19 @@ function createAppStore(data: AppData) {
         set((s) => ({ events: [...s.events, ev].sort((a, b) => (a.data + a.hora).localeCompare(b.data + b.hora)) }))
       ),
     removeEvent: (id) => apply(events.deleteEvent(id), () => set((s) => ({ events: s.events.filter((e) => e.id !== id) }))),
+
+    addCell: (c) => apply(cells.createCell(c), (cell) => set((s) => ({ cells: putCell(s.cells, cell) }))),
+    updateCell: (id, c) => apply(cells.updateCell(id, c), (cell) => set((s) => ({ cells: putCell(s.cells, cell) }))),
+    removeCell: (id) =>
+      apply(cells.deleteCell(id), () =>
+        set((s) => ({ cells: s.cells.filter((c) => c.id !== id), cellMeetings: s.cellMeetings.filter((r) => r.celulaId !== id) }))
+      ),
+    saveCellMeeting: (m) =>
+      apply(cells.saveCellMeeting(m), (r) =>
+        set((s) => ({ cellMeetings: byDateDesc([r, ...s.cellMeetings.filter((x) => x.id !== r.id)]) }))
+      ),
+    removeCellMeeting: (id) =>
+      apply(cells.deleteCellMeeting(id), () => set((s) => ({ cellMeetings: s.cellMeetings.filter((r) => r.id !== id) }))),
 
     addCertificates: (c) =>
       apply(certificates.issueCertificates(c), (cs) => set((s) => ({ certificates: [...cs, ...s.certificates] }))),

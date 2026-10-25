@@ -6,11 +6,12 @@ import { toast } from "sonner"
 
 import { PageHeader } from "@/components/app/page-header"
 import { MemberAvatar } from "@/components/app/member-avatar"
+import { MemberPicker } from "@/components/app/member-picker"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -108,6 +109,20 @@ function UsuariosTab() {
   const { errors, pending, submit, invalid } = useFormAction()
   const [open, setOpen] = React.useState(false)
   const [papel, setPapel] = React.useState<UserRole>("secretaria")
+  const [nome, setNome] = React.useState("")
+  const [email, setEmail] = React.useState("")
+  const [memberId, setMemberId] = React.useState<string>()
+  const members = useApp((s) => s.members)
+  const nomeDe = (id?: string) => members.find((m) => m.id === id)?.nome
+
+  function escolherMembro(id: string) {
+    const m = members.find((x) => x.id === id)
+    setMemberId(id)
+    if (m) {
+      setNome(m.nome)
+      if (m.email) setEmail(m.email)
+    }
+  }
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
@@ -122,17 +137,17 @@ function UsuariosTab() {
                 noValidate
                 onSubmit={(e) => {
                   e.preventDefault()
-                  const f = new FormData(e.currentTarget)
-                  const convite = { nome: String(f.get("nome")), email: String(f.get("email")), papel }
+                  const convite = { nome, email, papel, memberId: papel === "lider" ? memberId : undefined }
                   submit(inviteSchema, convite, () => addUser(convite), () => {
                     toast.success("Convite enviado por e-mail")
                     setOpen(false)
+                    setNome("")
+                    setEmail("")
+                    setMemberId(undefined)
                   })
                 }}
               >
                 <FieldGroup>
-                  <Field><FieldLabel htmlFor="unome">Nome</FieldLabel><Input {...invalid("nome")} id="unome" name="nome" required /><FieldError>{errors.nome}</FieldError></Field>
-                  <Field><FieldLabel htmlFor="uemail">E-mail</FieldLabel><Input {...invalid("email")} id="uemail" name="email" type="email" required /><FieldError>{errors.email}</FieldError></Field>
                   <Field>
                     <FieldLabel>Função</FieldLabel>
                     <Select value={papel} onValueChange={(v) => setPapel(v as UserRole)}>
@@ -140,6 +155,16 @@ function UsuariosTab() {
                       <SelectContent>{Object.entries(ROLE_LABEL).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
                     </Select>
                   </Field>
+                  {papel === "lider" && (
+                    <Field>
+                      <FieldLabel>Cadastro de membro do líder</FieldLabel>
+                      <MemberPicker value={memberId} onChange={escolherMembro} placeholder="Quem é o líder no cadastro" />
+                      <FieldDescription>Ele verá e cuidará só das células em que for líder ou colíder.</FieldDescription>
+                      <FieldError>{errors.memberId}</FieldError>
+                    </Field>
+                  )}
+                  <Field><FieldLabel htmlFor="unome">Nome</FieldLabel><Input {...invalid("nome")} id="unome" value={nome} onChange={(e) => setNome(e.target.value)} required /><FieldError>{errors.nome}</FieldError></Field>
+                  <Field><FieldLabel htmlFor="uemail">E-mail</FieldLabel><Input {...invalid("email")} id="uemail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /><FieldError>{errors.email}</FieldError></Field>
                 </FieldGroup>
                 <DialogFooter className="mt-6"><Button type="submit" disabled={pending}>{pending ? "Enviando…" : "Enviar convite"}</Button></DialogFooter>
               </form>
@@ -165,6 +190,15 @@ function UsuariosTab() {
                     <SelectTrigger size="sm" className="w-44"><SelectValue /></SelectTrigger>
                     <SelectContent>{Object.entries(ROLE_LABEL).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
                   </Select>
+                  {u.papel === "lider" && (
+                    <div className="mt-1.5 w-44">
+                      <MemberPicker
+                        value={u.memberId}
+                        onChange={(id) => notify(updateUser(u.id, { memberId: id }), `Ligado ao cadastro de ${nomeDe(id)}`)}
+                        placeholder="Ligar ao cadastro"
+                      />
+                    </div>
+                  )}
                 </TableCell>
                 <TableCell><Switch checked={u.ativo} disabled={u.id === me.id} onCheckedChange={(v) => notify(updateUser(u.id, { ativo: v }), v ? "Acesso reativado" : "Acesso desativado")} /></TableCell>
                 <TableCell>

@@ -138,6 +138,37 @@ export const certificatesSchema = z.object({
   detalhe: texto(200),
 })
 
+const membroIds = (max: number, msg: string) =>
+  z
+    .array(id)
+    .max(max, msg)
+    .transform((ids) => [...new Set(ids)])
+
+export const cellSchema = z.object({
+  nome: obrigatorio(60, "Nome da célula"),
+  diaSemana: z.number().int().min(0).max(6).optional(),
+  horario: z.union([z.literal(""), z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Horário inválido")]),
+  endereco: enderecoSchema,
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+  lideres: membroIds(2, "Escolha no máximo 2 líderes").refine((l) => l.length > 0, "Escolha ao menos um líder"),
+  colideres: membroIds(2, "Escolha no máximo 2 colíderes"),
+  anfitrioes: membroIds(2, "Escolha no máximo 2 anfitriões"),
+  membroIds: membroIds(300, "Pessoas demais numa célula"),
+})
+
+export const cellMeetingSchema = z.object({
+  celulaId: id,
+  data: data.refine((v) => v <= hoje(), "A reunião não pode estar no futuro"),
+  presentes: membroIds(300, "Pessoas demais"),
+  visitantes: z
+    .array(z.object({ nome: obrigatorio(120, "Nome do visitante"), telefone }))
+    .max(50, "Visitantes demais numa reunião"),
+  observacoes: texto(4000),
+})
+
+export const geocodeSchema = enderecoSchema
+
 export const churchSchema = z.object({
   nome: obrigatorio(120, "Nome").min(2, "Nome curto demais"),
   sigla: texto(10),
@@ -168,13 +199,21 @@ export const whatsappSchema = z
 
 export const roleSchema = z.enum(["admin", "secretaria", "tesouraria", "pastor", "lider"], "Função inválida")
 
-export const inviteSchema = z.object({
-  nome: obrigatorio(120, "Nome"),
-  email: z.email("E-mail inválido").max(254),
-  papel: roleSchema,
-})
+export const inviteSchema = z
+  .object({
+    nome: obrigatorio(120, "Nome"),
+    email: z.email("E-mail inválido").max(254),
+    papel: roleSchema,
+    memberId: id.optional(),
+  })
+  .refine((u) => u.papel !== "lider" || u.memberId, {
+    path: ["memberId"],
+    message: "Escolha o cadastro de membro do líder",
+  })
 
-export const updateUserSchema = z.object({ papel: roleSchema, ativo: z.boolean() }).partial()
+export const updateUserSchema = z
+  .object({ papel: roleSchema, ativo: z.boolean(), memberId: id.nullable() })
+  .partial()
 
 export const idSchema = id
 

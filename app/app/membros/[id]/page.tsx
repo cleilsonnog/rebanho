@@ -31,6 +31,7 @@ export default function MembroPage() {
   const visits = useApp((s) => s.visits)
   const transactions = useApp((s) => s.transactions)
   const certificates = useApp((s) => s.certificates)
+  const celula = useApp((s) => s.cells.find((c) => c.membroIds.includes(id)))
   const podeEditar = useApp((s) => canWrite(s.me.papel, "membros"))
 
   if (!m)
@@ -96,6 +97,9 @@ export default function MembroPage() {
               <Info label="Membro desde">{formatDate(m.membroDesde)}</Info>
               <Info label="Batismo">{m.batizado ? formatDate(m.dataBatismo) : "Não batizado(a)"}</Info>
               <Info label="Congregação">{m.congregacao}</Info>
+              <Info label="Célula">
+                {celula && <Link href={`/app/celulas/${celula.id}`} className="hover:underline">{celula.nome}</Link>}
+              </Info>
               {m.observacoes && (
                 <div className="sm:col-span-3">
                   <p className="text-xs text-muted-foreground">Observações</p>

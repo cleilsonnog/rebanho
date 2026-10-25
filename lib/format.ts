@@ -60,15 +60,15 @@ export const ROLE_LABEL: Record<UserRole, string> = {
   secretaria: "Secretaria",
   tesouraria: "Tesouraria",
   pastor: "Pastor(a)",
-  lider: "Líder de ministério",
+  lider: "Líder de célula",
 }
 
 export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   admin: ["Tudo, inclusive usuários e plano"],
-  secretaria: ["Membros", "Visitas", "Certificados", "Carteirinhas", "Agenda"],
+  secretaria: ["Membros", "Visitas", "Células", "Certificados", "Carteirinhas", "Agenda"],
   tesouraria: ["Financeiro", "Relatórios financeiros"],
-  pastor: ["Membros", "Visitas", "Mapa", "Aniversários", "Agenda"],
-  lider: ["Membros do seu ministério", "Agenda"],
+  pastor: ["Membros", "Visitas", "Reuniões de célula", "Mapa", "Aniversários", "Agenda"],
+  lider: ["Reuniões da sua célula: presença, visitantes e observações", "Agenda"],
 }
 
 export const AGE_BANDS = [
@@ -99,6 +99,12 @@ export const STATUS_COLOR: Record<MemberStatus, string> = {
   visitante: "#1aa39a",
   transferido: "#8a8796",
 }
+
+export const DIAS_SEMANA = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"]
+
+/** "Quarta · 19:30" */
+export const cellSchedule = (c: { diaSemana?: number; horario: string }) =>
+  [c.diaSemana !== undefined ? DIAS_SEMANA[c.diaSemana] : "", c.horario].filter(Boolean).join(" · ") || "Dia a definir"
 
 /** Rótulo curto para eixos de gráfico: 12k, 1,5k. */
 export const formatAxisBRL = (v: number) => (v >= 1000 ? `${(v / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}k` : String(v))

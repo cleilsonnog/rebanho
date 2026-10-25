@@ -40,6 +40,8 @@ model Church {
   transactions  Transaction[]
   events        Event[]
   certificates  Certificate[]
+  cells         Cell[]
+  cellMeetings  CellMeeting[]
 }
 
 enum UserRole {
@@ -63,6 +65,9 @@ model ChurchUser {
   email             String
   papel             UserRole @default(lider)
   ativo             Boolean  @default(true)
+  /// Cadastro de membro desta pessoa. Para o líder de célula, diz quais células ele lidera.
+  memberId          String?  @unique
+  member            Member?  @relation(fields: [memberId], references: [id], onDelete: SetNull)
   createdAt         DateTime @default(now())
 
   @@unique([churchId, email])
@@ -104,6 +109,9 @@ model Member {
   church         Church        @relation(fields: [churchId], references: [id], onDelete: Cascade)
   congregationId String?
   congregation   Congregation? @relation(fields: [congregationId], references: [id], onDelete: SetNull)
+  /// Célula que a pessoa frequenta (uma por pessoa).
+  cellId         String?
+  cell           Cell?         @relation(fields: [cellId], references: [id], onDelete: SetNull)
 
   nome        String
   sexo        Sexo
@@ -133,6 +141,9 @@ model Member {
   visits       Visit[]
   transactions Transaction[]
   certificates Certificate[]
+  cellRoles    CellLeader[]
+  attendances  CellAttendance[]
+  churchUser   ChurchUser?
 
   @@index([churchId, nome])
   @@index([churchId, status])
@@ -224,6 +235,86 @@ model Certificate {
   emitidoEm DateTime         @db.Date
 
   @@index([churchId, emitidoEm])
+}
+
+/// Célula (pequeno grupo que se reúne numa casa). O pino no mapa é a casa do anfitrião.
+model Cell {
+  id        String   @id @default(cuid())
+  churchId  String
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  nome      String
+  /// 0 = domingo … 6 = sábado
+  diaSemana Int?
+  horario   String   @default("") @db.VarChar(5)
+  rua       String   @default("")
+  numero    String   @default("")
+  bairro    String   @default("")
+  cidade    String   @default("")
+  uf        String   @default("") @db.Char(2)
+  cep       String   @default("")
+  lat       Float?
+  lng       Float?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  leaders  CellLeader[]
+  members  Member[]
+  meetings CellMeeting[]
+
+  @@unique([churchId, nome])
+}
+
+enum CellRole {
+  lider
+  colider
+  anfitriao
+}
+
+/// Liderança da célula: até duas pessoas (um casal) por função. A mesma pessoa pode ser líder e anfitriã.
+model CellLeader {
+  cellId   String
+  cell     Cell     @relation(fields: [cellId], references: [id], onDelete: Cascade)
+  memberId String
+  member   Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  funcao   CellRole
+
+  @@id([cellId, memberId, funcao])
+}
+
+/// Reunião de um dia: presença dos membros, visitantes e observações. Uma por célula por dia.
+model CellMeeting {
+  id          String           @id @default(cuid())
+  churchId    String
+  church      Church           @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  cellId      String
+  cell        Cell             @relation(fields: [cellId], references: [id], onDelete: Cascade)
+  data        DateTime         @db.Date
+  observacoes String           @default("")
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  presencas   CellAttendance[]
+  visitantes  CellVisitor[]
+
+  @@unique([cellId, data])
+  @@index([churchId, data])
+}
+
+model CellAttendance {
+  meetingId String
+  meeting   CellMeeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  memberId  String
+  member    Member      @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@id([meetingId, memberId])
+}
+
+/// Visitante de uma reunião, ainda sem cadastro de membro.
+model CellVisitor {
+  id        String      @id @default(cuid())
+  meetingId String
+  meeting   CellMeeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  nome      String
+  telefone  String      @default("")
 }
 
 /// Contador do rate limit: quantas vezes `key` agiu na janela que começa em `windowStart`.

@@ -17,6 +17,8 @@ export const LIMITES = {
   importacao: { max: 10, segundos: 3600 },
   /** Apagar tudo e carregar dados de exemplo, por igreja. */
   demo: { max: 3, segundos: 3600 },
+  /** Busca da posição de um endereço no mapa (serviços grátis com uso justo), por igreja. */
+  geocodificacao: { max: 20, segundos: 60 },
   /** Página pública da carteirinha, por IP. */
   verificar: { max: 30, segundos: 60 },
 } as const

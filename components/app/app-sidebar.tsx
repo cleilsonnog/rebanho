@@ -11,6 +11,7 @@ import {
   ChevronsUpDown,
   HandCoins,
   HeartHandshake,
+  House,
   IdCard,
   LayoutDashboard,
   LogOut,
@@ -71,6 +72,7 @@ const NAV = [
   {
     label: "Gestão",
     items: [
+      { title: "Células", href: "/app/celulas", icon: House },
       { title: "Financeiro", href: "/app/financeiro", icon: HandCoins },
       { title: "Agenda", href: "/app/agenda", icon: CalendarDays },
       { title: "WhatsApp", href: "/app/whatsapp", icon: MessageCircle },
