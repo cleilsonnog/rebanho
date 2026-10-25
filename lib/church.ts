@@ -17,7 +17,13 @@ export const ensureChurch = cache(async (orgId: string) => {
   const org = await (await clerkClient()).organizations.getOrganization({ organizationId: orgId })
   return db.church.upsert({
     where: { clerkOrgId: orgId },
-    create: { clerkOrgId: orgId, nome: org.name, congregations: { create: { nome: "Sede" } } },
+    // A logo enviada na tela de criar igreja (do Clerk) já vem junto.
+    create: {
+      clerkOrgId: orgId,
+      nome: org.name,
+      logoUrl: org.hasImage ? org.imageUrl : null,
+      congregations: { create: { nome: "Sede" } },
+    },
     update: {},
   })
 })

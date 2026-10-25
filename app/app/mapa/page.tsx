@@ -3,13 +3,15 @@
 import * as React from "react"
 import dynamic from "next/dynamic"
 import { useSearchParams } from "next/navigation"
-import { Loader2 } from "lucide-react"
+import Link from "next/link"
+import { Loader2, MapPinOff } from "lucide-react"
 
 import { AccessGuard } from "@/components/app/access-guard"
 import { PageHeader } from "@/components/app/page-header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { STATUS_COLOR, STATUS_LABEL } from "@/lib/format"
+import { canWrite } from "@/lib/permissions"
 import { useApp } from "@/lib/store"
 import type { MemberStatus } from "@/lib/types"
 
@@ -20,11 +22,46 @@ const MembersMap = dynamic(() => import("@/components/app/members-map"), {
   ),
 })
 
+const semPosicao = (m: { lat: number; lng: number; endereco: { bairro: string } }) => m.lat === 0 && m.lng === 0
+
+/**
+ * Localiza no mapa, aos poucos, quem ainda está sem posição (ex.: depois de importar uma planilha).
+ * O servidor consulta poucos bairros por vez, porque o serviço grátis aceita 1 consulta por segundo.
+ */
+function useLocalizar() {
+  const pode = useApp((s) => canWrite(s.me.papel, "membros"))
+  const localizarMembros = useApp((s) => s.localizarMembros)
+  const pendentes = useApp((s) => s.members.filter((m) => semPosicao(m) && m.endereco.bairro).length)
+  const [estado, setEstado] = React.useState<{ rodando: boolean; restantes?: number; naoAchados?: number; erro?: string }>({ rodando: false })
+  const iniciou = React.useRef(false)
+
+  React.useEffect(() => {
+    if (!pode || pendentes === 0 || iniciou.current) return
+    // Roda uma vez por visita à tela; o ref evita repetir quando o React monta o efeito duas vezes.
+    iniciou.current = true
+    ;(async () => {
+      setEstado({ rodando: true })
+      for (let i = 0; i < 40; i++) {
+        const r = await localizarMembros().catch(() => null)
+        if (!r || !r.ok) return setEstado({ rodando: false, erro: r && !r.ok ? r.error : "Sem conexão com o servidor." })
+        setEstado({ rodando: r.data.restantes > 0, restantes: r.data.restantes, naoAchados: r.data.naoAchados })
+        if (r.data.restantes === 0) return
+      }
+    })()
+  }, [pode, pendentes, localizarMembros])
+
+  return estado
+}
+
 function MapaContent() {
   const params = useSearchParams()
   const members = useApp((s) => s.members)
+  const church = useApp((s) => s.church)
+  const souAdmin = useApp((s) => s.me.papel === "admin")
+  const localizando = useLocalizar()
   const [visible, setVisible] = React.useState<MemberStatus[]>(["ativo", "afastado", "visitante"])
-  const filtered = members.filter((m) => visible.includes(m.status))
+  const filtered = React.useMemo(() => members.filter((m) => visible.includes(m.status)), [members, visible])
+  const foraDoMapa = filtered.filter(semPosicao).length
   const focus = members.find((m) => m.id === params.get("membro"))
 
   const porBairro = React.useMemo(() => {
@@ -38,9 +75,34 @@ function MapaContent() {
       <PageHeader title="Mapa de membros" description="Aproxime para ver quem mora perto e planeje visitas e células por região." />
       <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
         <Card className="h-[560px] overflow-hidden p-0 lg:h-[680px]">
-          <MembersMap members={filtered} focus={focus} />
+          <MembersMap members={filtered} focus={focus} church={church} />
         </Card>
         <div className="space-y-4">
+          {church.lat === 0 && church.lng === 0 && (
+            <Card>
+              <CardContent className="text-sm text-muted-foreground">
+                O mapa ainda não sabe onde fica a igreja.{" "}
+                {souAdmin ? (
+                  <Link href="/app/configuracoes" className="font-medium text-primary hover:underline">Cadastre o endereço em Configurações</Link>
+                ) : (
+                  "Peça ao administrador para cadastrar o endereço da igreja."
+                )}
+              </CardContent>
+            </Card>
+          )}
+          {(localizando.rodando || foraDoMapa > 0 || localizando.erro) && (
+            <Card>
+              <CardContent className="space-y-1 text-sm">
+                {localizando.rodando ? (
+                  <p className="flex items-center gap-2"><Loader2 className="size-4 animate-spin text-primary" /> Localizando bairros… {localizando.restantes ? `${localizando.restantes} pessoas na fila` : ""}</p>
+                ) : (
+                  foraDoMapa > 0 && <p className="flex items-center gap-2 text-muted-foreground"><MapPinOff className="size-4" /> {foraDoMapa} pessoa(s) fora do mapa: sem bairro ou bairro não encontrado.</p>
+                )}
+                {localizando.erro && <p className="text-destructive">{localizando.erro}</p>}
+                <p className="text-xs text-muted-foreground">Os pinos ficam numa posição aproximada do bairro, nunca na casa.</p>
+              </CardContent>
+            </Card>
+          )}
           <Card>
             <CardHeader><CardTitle className="text-base">Mostrar</CardTitle></CardHeader>
             <CardContent className="space-y-3">

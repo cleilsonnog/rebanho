@@ -168,6 +168,9 @@ export const toChurch = (r: P.Church, congregacoes: string[]): Church => ({
   email: r.email,
   endereco: { rua: r.rua, numero: r.numero, bairro: r.bairro, cidade: r.cidade, uf: r.uf.trim(), cep: r.cep },
   congregacoes,
+  lat: r.lat ?? 0,
+  lng: r.lng ?? 0,
+  logoUrl: r.logoUrl ?? undefined,
 })
 
 export const toWhatsApp = (r: P.Church): WhatsAppSettings => ({

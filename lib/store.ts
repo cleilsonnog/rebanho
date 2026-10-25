@@ -23,6 +23,7 @@ interface AppState extends AppData {
   addMembers: (ms: Input<typeof members.importMembers>) => Promise<ActionResult<Member[]>>
   updateMember: (id: string, m: Input<typeof members.createMember>) => Promise<ActionResult<Member>>
   removeMember: (id: string) => Promise<ActionResult>
+  localizarMembros: () => ReturnType<typeof members.localizarMembros>
 
   addVisit: (v: Input<typeof visits.createVisit>) => Promise<ActionResult<Visit>>
   removeVisit: (id: string) => Promise<ActionResult>
@@ -44,8 +45,11 @@ interface AppState extends AppData {
   addCertificates: (c: Input<typeof certificates.issueCertificates>) => Promise<ActionResult<IssuedCertificate[]>>
 
   updateChurch: (c: Input<typeof church.updateChurch>) => Promise<ActionResult<Church>>
+  updateLogo: (form: FormData) => Promise<ActionResult<string>>
+  removeLogo: () => Promise<ActionResult>
   updateWhatsApp: (w: Input<typeof church.updateWhatsApp>) => Promise<ActionResult<WhatsAppSettings>>
   loadDemoData: () => Promise<ActionResult>
+  clearData: (confirmacao: string) => Promise<ActionResult>
 
   addUser: (u: Input<typeof users.inviteUser>) => Promise<ActionResult<AppUser>>
   updateUser: (id: string, u: Parameters<typeof users.updateUser>[1]) => Promise<ActionResult<AppUser>>
@@ -95,6 +99,12 @@ function createAppStore(data: AppData) {
         }))
       ),
 
+    localizarMembros: () =>
+      apply(members.localizarMembros(), ({ atualizados }) => {
+        const pos = new Map(atualizados.map((p) => [p.id, p]))
+        set((s) => ({ members: s.members.map((m) => (pos.has(m.id) ? { ...m, lat: pos.get(m.id)!.lat, lng: pos.get(m.id)!.lng } : m)) }))
+      }),
+
     addVisit: (v) => apply(visits.createVisit(v), (visit) => set((s) => ({ visits: byDateDesc([visit, ...s.visits]) }))),
     removeVisit: (id) => apply(visits.deleteVisit(id), () => set((s) => ({ visits: s.visits.filter((v) => v.id !== id) }))),
 
@@ -134,9 +144,12 @@ function createAppStore(data: AppData) {
       apply(certificates.issueCertificates(c), (cs) => set((s) => ({ certificates: [...cs, ...s.certificates] }))),
 
     updateChurch: (c) => apply(church.updateChurch(c), (ch) => set({ church: ch })),
+    updateLogo: (form) => apply(church.updateLogo(form), (logoUrl) => set((s) => ({ church: { ...s.church, logoUrl } }))),
+    removeLogo: () => apply(church.removeLogo(), () => set((s) => ({ church: { ...s.church, logoUrl: undefined } }))),
     updateWhatsApp: (w) => apply(church.updateWhatsApp(w), (whatsapp) => set({ whatsapp })),
     // Depois de trocar os dados a tela recarrega e o servidor manda tudo de novo.
     loadDemoData: () => church.loadDemoData(),
+    clearData: (confirmacao) => church.clearData(confirmacao),
 
     addUser: (u) => apply(users.inviteUser(u), (user) => set((s) => ({ users: [...s.users, user] }))),
     updateUser: (id, u) =>

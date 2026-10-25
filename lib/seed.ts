@@ -258,6 +258,8 @@ export const seedChurch: Church = {
   email: "secretaria@montehermom.org",
   endereco: { rua: "Av. T-63", numero: "1200", bairro: "Setor Bueno", cidade: "Goiânia", uf: "GO", cep: "74230-100" },
   congregacoes: [...CONGREGACOES],
+  lat: -16.7063,
+  lng: -49.2725,
 }
 
 export const seedUsers: AppUser[] = [
@@ -274,10 +276,4 @@ export const seedWhatsApp: WhatsAppSettings = {
   envioAutomatico: true,
   mensagemAniversario:
     "Olá, {nome}! 🎉 A {igreja} celebra a sua vida hoje. Que o Senhor te abençoe e te guarde neste novo ano. Feliz aniversário!",
-}
-
-/** Coordenada aproximada pelo bairro. Em produção, use um serviço de geocodificação. */
-export function approxCoords(bairro: string) {
-  const b = BAIRROS.find((x) => x.nome.toLowerCase() === bairro.trim().toLowerCase()) ?? BAIRROS[0]
-  return { lat: b.lat + (Math.random() - 0.5) * 0.012, lng: b.lng + (Math.random() - 0.5) * 0.012 }
 }

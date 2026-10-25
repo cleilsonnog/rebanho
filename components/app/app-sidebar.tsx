@@ -23,6 +23,7 @@ import {
 } from "lucide-react"
 
 import { LogoMark } from "@/components/brand"
+import { ChurchLogo } from "@/components/app/church-logo"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -114,7 +115,7 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <Link href="/app">
-                <LogoMark className="size-8 shrink-0" />
+                <ChurchLogo className="size-8 shrink-0 rounded-md" fallback={<LogoMark className="size-8 shrink-0" />} />
                 <div className="grid flex-1 text-left leading-tight">
                   <span className="truncate font-heading text-base font-semibold">Rebanho</span>
                   <span className="truncate text-xs text-muted-foreground">{organization?.name}</span>

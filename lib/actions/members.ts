@@ -6,6 +6,7 @@ import { secureAction } from "../action"
 import { ActionError } from "../church"
 import { db } from "../db"
 import { memberInclude, toDate, toMember } from "../data"
+import { aproximar, bairrosGuardados, chaveBairro, consultarBairro, espera, type Ponto } from "../geocode"
 import { limitar } from "../rate-limit"
 import { idSchema, importMembersSchema, memberSchema, type MemberInput } from "../validations"
 
@@ -23,7 +24,18 @@ function congregationId(mapa: Awaited<ReturnType<typeof congregacoes>>, nome: st
   return c.id
 }
 
-function toRow({ endereco, congregacao: _c, nascimento, dataBatismo, membroDesde, observacoes, ...m }: MemberData) {
+/**
+ * Posição no mapa calculada no servidor (o que vem do navegador é ignorado): centro do bairro com desvio,
+ * nunca a casa. Se o bairro não mudou, o pino fica onde estava.
+ */
+async function posicao(e: MemberData["endereco"], atual?: { bairro: string; cidade: string; uf: string; lat: number | null; lng: number | null }) {
+  if (atual?.lat && atual.lng && chaveBairro(atual) === chaveBairro(e)) return { lat: atual.lat, lng: atual.lng }
+  if (!e.bairro || !e.cidade) return aproximar(null)
+  const guardado = (await bairrosGuardados([chaveBairro(e)])).get(chaveBairro(e))
+  return aproximar(guardado !== undefined ? guardado : await consultarBairro(e))
+}
+
+function toRow({ endereco, congregacao: _c, nascimento, dataBatismo, membroDesde, observacoes, lat: _lat, lng: _lng, ...m }: MemberData) {
   return {
     ...m,
     ...endereco,
@@ -38,7 +50,7 @@ export async function createMember(input: MemberInput) {
   return secureAction("membros", memberSchema, input, async (m, { church }) => {
     const congs = await congregacoes(church.id)
     const row = await db.member.create({
-      data: { ...toRow(m), churchId: church.id, congregationId: congregationId(congs, m.congregacao) },
+      data: { ...toRow(m), ...(await posicao(m.endereco)), churchId: church.id, congregationId: congregationId(congs, m.congregacao) },
       include: memberInclude,
     })
     return toMember(row)
@@ -49,9 +61,10 @@ export async function updateMember(id: string, input: MemberInput) {
   const schema = z.object({ id: idSchema, member: memberSchema })
   return secureAction("membros", schema, { id, member: input }, async ({ id, member: m }, { church }) => {
     const congs = await congregacoes(church.id)
+    const atual = await db.member.findFirstOrThrow({ where: { id, churchId: church.id } })
     const row = await db.member.update({
       where: { id, churchId: church.id },
-      data: { ...toRow(m), congregationId: congregationId(congs, m.congregacao) },
+      data: { ...toRow(m), ...(await posicao(m.endereco, atual)), congregationId: congregationId(congs, m.congregacao) },
       include: memberInclude,
     })
     return toMember(row)
@@ -69,9 +82,51 @@ export async function importMembers(input: MemberInput[]) {
     await limitar("importacao", user.id)
     const congs = await congregacoes(church.id)
     const nomes = new Map([...congs.values()].map((c) => [c.id, c.nome]))
+    // Só bairros já guardados; os novos são localizados aos poucos pela tela do mapa (localizarMembros).
+    const guardados = await bairrosGuardados(ms.map((m) => chaveBairro(m.endereco)))
     const rows = await db.member.createManyAndReturn({
-      data: ms.map((m) => ({ ...toRow(m), churchId: church.id, congregationId: congregationId(congs, m.congregacao) })),
+      data: ms.map((m) => ({
+        ...toRow(m),
+        ...(guardados.get(chaveBairro(m.endereco)) ? aproximar(guardados.get(chaveBairro(m.endereco))) : { lat: null, lng: null }),
+        churchId: church.id,
+        congregationId: congregationId(congs, m.congregacao),
+      })),
     })
     return rows.map((r) => toMember({ ...r, congregation: r.congregationId ? { nome: nomes.get(r.congregationId)! } : null }))
+  })
+}
+
+const semPosicao = { OR: [{ lat: null }, { lat: 0, lng: 0 }], bairro: { not: "" } }
+
+/**
+ * Coloca no mapa quem ainda está sem posição (ex.: depois de uma importação). Cada chamada consulta
+ * no máximo 5 bairros novos, um por segundo; a tela chama de novo enquanto houver pendentes.
+ */
+export async function localizarMembros() {
+  return secureAction("membros", z.undefined(), undefined, async (_, { church }) => {
+    await limitar("geocodificacao", church.id)
+    const pendentes = await db.member.findMany({
+      where: { churchId: church.id, ...semPosicao },
+      select: { id: true, bairro: true, cidade: true, uf: true },
+      take: 500,
+    })
+    const chaves = [...new Set(pendentes.map(chaveBairro))]
+    const centros: Map<string, Ponto | null> = await bairrosGuardados(chaves)
+    for (const [i, chave] of chaves.filter((c) => !centros.has(c)).slice(0, 5).entries()) {
+      if (i > 0) await espera(1100)
+      centros.set(chave, await consultarBairro(pendentes.find((p) => chaveBairro(p) === chave)!))
+    }
+
+    const achados = pendentes.flatMap((m) => {
+      const centro = centros.get(chaveBairro(m))
+      return centro ? [{ id: m.id, ...aproximar(centro) }] : []
+    })
+    await db.$transaction(achados.map(({ id, lat, lng }) => db.member.update({ where: { id, churchId: church.id }, data: { lat, lng } })))
+
+    // Bairros já tentados e não achados ficam fora da conta: não adianta tentar de novo.
+    const tentados = await bairrosGuardados(chaves)
+    const restantes = pendentes.filter((m) => !tentados.has(chaveBairro(m))).length
+    const naoAchados = pendentes.filter((m) => tentados.get(chaveBairro(m)) === null).length
+    return { atualizados: achados, restantes, naoAchados }
   })
 }

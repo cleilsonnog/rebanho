@@ -7,7 +7,7 @@ import { seedCertificates, seedChurch, seedEvents, seedMembers, seedTransactions
 
 const date = (iso: string) => new Date(`${iso}T00:00:00Z`)
 
-/** Apaga células, membros, visitas, lançamentos, eventos, certificados e congregações da igreja. */
+/** Apaga estudos, células, membros, visitas, lançamentos, eventos, certificados e congregações da igreja. */
 export async function clearChurchData(tx: Prisma.TransactionClient, churchId: string) {
   const where = { churchId }
   await tx.cell.deleteMany({ where })

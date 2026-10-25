@@ -138,6 +138,10 @@ export interface Church {
   email: string
   endereco: Endereco
   congregacoes: string[]
+  /** Posição da igreja; 0/0 enquanto o endereço não foi localizado. */
+  lat: number
+  lng: number
+  logoUrl?: string
 }
 
 export interface WhatsAppSettings {

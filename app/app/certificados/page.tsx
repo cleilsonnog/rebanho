@@ -9,6 +9,7 @@ import { AccessGuard } from "@/components/app/access-guard"
 import { MemberAvatar } from "@/components/app/member-avatar"
 import { PageHeader } from "@/components/app/page-header"
 import { LogoMark } from "@/components/brand"
+import { LogoImg } from "@/components/app/church-logo"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -56,7 +57,7 @@ function Certificate({ m, church, tipo, detalhe, data, estilo }: { m: Member; ch
           <div className="absolute top-0 right-0 size-[22%] rounded-bl-full bg-[#f2b84b]/40" />
         </>
       )}
-      <LogoMark className="size-[8%] min-w-6" />
+      <LogoImg church={church} className="h-[12%] min-h-8 w-auto max-w-[20%]" fallback={<LogoMark className="size-[8%] min-w-6" />} />
       <p className="mt-[2%] text-[clamp(8px,1.4vw,13px)] tracking-[0.25em] uppercase text-neutral-500">{church.nome}</p>
       <h3 className={cn("mt-[3%] text-[clamp(16px,3.6vw,36px)] font-semibold", estilo === "classico" ? "text-[#8a5f12]" : "text-[#3a1d86]")}>
         Certificado de {tipo}

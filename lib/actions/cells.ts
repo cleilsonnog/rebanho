@@ -8,6 +8,7 @@ import { db } from "../db"
 import { assertMembers, cellInclude, cellScope, cellMeetingInclude, toCell, toCellMeeting, toCellStudy, toDate } from "../data"
 import { inicioDaSemana } from "../format"
 import type { CellRole } from "../generated/prisma/client"
+import { geocodeEndereco } from "../geocode"
 import { limitar } from "../rate-limit"
 import { cellMeetingSchema, cellSchema, cellStudySchema, geocodeSchema, idSchema } from "../validations"
 
@@ -116,46 +117,15 @@ export async function deleteCellStudy(id: string) {
   })
 }
 
-const USER_AGENT = "Rebanho/0.1 (+https://github.com/cleilsonnog/rebanho)"
-
-async function getJSON<T>(url: string): Promise<T | null> {
-  try {
-    const r = await fetch(url, { headers: { "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(6000) })
-    return r.ok ? ((await r.json()) as T) : null
-  } catch {
-    return null
-  }
-}
-
-async function nominatim(params: Record<string, string>) {
-  const q = new URLSearchParams({ ...params, country: "Brasil", format: "json", limit: "1" })
-  const r = await getJSON<{ lat: string; lon: string }[]>(`https://nominatim.openstreetmap.org/search?${q}`)
-  return r?.[0] ? { lat: Number(r[0].lat), lng: Number(r[0].lon) } : null
-}
-
 /**
- * Acha a posição de um endereço: primeiro pela rua (Nominatim/OpenStreetMap), depois pelo CEP (BrasilAPI)
- * e por último pelo bairro. Os dois serviços são grátis e pedem uso moderado, daí o limite por igreja.
+ * Acha a posição da casa da célula pelo endereço (lib/geocode.ts). Os serviços são grátis
+ * e pedem uso moderado, daí o limite por igreja.
  */
 export async function geocodeAddress(input: z.input<typeof geocodeSchema>) {
   return secureAction("celulas", geocodeSchema, input, async (e, { church }) => {
     await limitar("geocodificacao", church.id)
-    const cidade = { city: e.cidade, state: e.uf }
-
-    if (e.rua) {
-      const p = await nominatim({ street: `${e.numero} ${e.rua}`.trim(), ...cidade })
-      if (p) return { ...p, precisao: "endereço" as const }
-    }
-    if (e.cep) {
-      type Cep = { location?: { coordinates?: { latitude?: string; longitude?: string } } }
-      const r = await getJSON<Cep>(`https://brasilapi.com.br/api/cep/v2/${e.cep.replace(/\D/g, "")}`)
-      const c = r?.location?.coordinates
-      if (c?.latitude && c.longitude) return { lat: Number(c.latitude), lng: Number(c.longitude), precisao: "CEP" as const }
-    }
-    if (e.bairro) {
-      const p = await nominatim({ q: `${e.bairro}, ${e.cidade} - ${e.uf}` })
-      if (p) return { ...p, precisao: "bairro" as const }
-    }
-    throw new ActionError("Não encontramos esse endereço. Clique no mapa para marcar a casa.")
+    const p = await geocodeEndereco(e)
+    if (!p) throw new ActionError("Não encontramos esse endereço. Clique no mapa para marcar a casa.")
+    return p
   })
 }

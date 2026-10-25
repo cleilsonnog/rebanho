@@ -3,6 +3,7 @@
 import * as React from "react"
 import { BookOpen, ChevronDown, Printer } from "lucide-react"
 
+import { ChurchLogo } from "@/components/app/church-logo"
 import { Button } from "@/components/ui/button"
 import { periodoDaSemana } from "@/lib/format"
 import { useApp } from "@/lib/store"
@@ -14,12 +15,15 @@ function StudySheet({ study, celula }: { study: CellStudy; celula?: string }) {
   const igreja = useApp((s) => s.church.nome)
   return (
     <article className="bg-white p-10 font-sans text-black">
-      <header className="border-b-2 border-black pb-3">
-        <p className="text-sm">{igreja}</p>
-        <p className="text-sm">
-          Estudo da semana · {periodoDaSemana(study.semana)}
-          {celula && ` · Célula ${celula}`}
-        </p>
+      <header className="flex items-center gap-4 border-b-2 border-black pb-3">
+        <ChurchLogo className="h-14 w-auto max-w-32" />
+        <div>
+          <p className="text-sm">{igreja}</p>
+          <p className="text-sm">
+            Estudo da semana · {periodoDaSemana(study.semana)}
+            {celula && ` · Célula ${celula}`}
+          </p>
+        </div>
       </header>
       <h1 className="mt-6 text-3xl font-bold">{study.tema}</h1>
       {study.referencia && <p className="mt-1 text-lg">{study.referencia}</p>}

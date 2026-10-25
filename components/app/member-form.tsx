@@ -14,7 +14,7 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { useFormAction } from "@/hooks/use-form-action"
 import { STATUS_LABEL, TODAY } from "@/lib/format"
-import { BAIRROS, CARGOS, MINISTERIOS, approxCoords } from "@/lib/seed"
+import { CARGOS, MINISTERIOS } from "@/lib/seed"
 import { canWrite } from "@/lib/permissions"
 import { useApp } from "@/lib/store"
 import type { Member } from "@/lib/types"
@@ -22,14 +22,14 @@ import { memberSchema } from "@/lib/validations"
 
 type Draft = Omit<Member, "id">
 
-const empty = (congregacao: string): Draft => ({
+const empty = (congregacao: string, cidade: string, uf: string): Draft => ({
   nome: "",
   sexo: "F",
   nascimento: "",
   telefone: "",
   email: "",
   estadoCivil: "solteiro",
-  endereco: { rua: "", numero: "", bairro: "", cidade: "Goiânia", uf: "GO", cep: "" },
+  endereco: { rua: "", numero: "", bairro: "", cidade, uf, cep: "" },
   lat: 0,
   lng: 0,
   congregacao,
@@ -43,12 +43,16 @@ const empty = (congregacao: string): Draft => ({
 export function MemberForm({ member }: { member?: Member }) {
   const router = useRouter()
   const congregacoes = useApp((s) => s.church.congregacoes)
+  const cidadeIgreja = useApp((s) => s.church.endereco)
+  const members = useApp((s) => s.members)
+  // Sugestões de bairro: os que já aparecem no cadastro desta igreja.
+  const bairros = React.useMemo(() => [...new Set(members.map((m) => m.endereco.bairro).filter(Boolean))].sort(), [members])
   const addMember = useApp((s) => s.addMember)
   const updateMember = useApp((s) => s.updateMember)
   const { errors, pending, submit, invalid } = useFormAction()
   const pode = useApp((s) => canWrite(s.me.papel, "membros"))
   const [d, setD] = React.useState<Draft>(() => {
-    if (!member) return empty(congregacoes[0] ?? "")
+    if (!member) return empty(congregacoes[0] ?? "", cidadeIgreja.cidade, cidadeIgreja.uf)
     const rest: Partial<Member> = { ...member }
     delete rest.id
     return rest as Draft
@@ -59,8 +63,8 @@ export function MemberForm({ member }: { member?: Member }) {
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const bairroMudou = !member || member.endereco.bairro !== d.endereco.bairro
-    const data = bairroMudou ? { ...d, ...approxCoords(d.endereco.bairro) } : d
+    // A posição no mapa é calculada no servidor pelo bairro (lib/actions/members.ts).
+    const data = d
     submit(
       memberSchema,
       data,
@@ -154,7 +158,7 @@ export function MemberForm({ member }: { member?: Member }) {
               <Field className="sm:col-span-3">
                 <FieldLabel htmlFor="bairro">Bairro</FieldLabel>
                 <Input {...invalid("endereco.bairro")} id="bairro" list="bairros" value={d.endereco.bairro} onChange={(e) => setEnd("bairro", e.target.value)} />
-                <datalist id="bairros">{BAIRROS.map((b) => <option key={b.nome} value={b.nome} />)}</datalist>
+                <datalist id="bairros">{bairros.map((b) => <option key={b} value={b} />)}</datalist>
                 <FieldError>{errors["endereco.bairro"]}</FieldError>
               </Field>
               <Field className="sm:col-span-3">

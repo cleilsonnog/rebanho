@@ -16,9 +16,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TODAY } from "@/lib/format"
 import { canWrite } from "@/lib/permissions"
-import { approxCoords } from "@/lib/seed"
 import { useApp } from "@/lib/store"
-import type { Member } from "@/lib/types"
+import type { Endereco, Member } from "@/lib/types"
 import { memberSchema } from "@/lib/validations"
 
 const CAMPOS = [
@@ -66,7 +65,8 @@ function toISO(v: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : "2000-01-01"
 }
 
-function buildMember(get: (k: CampoKey) => string, congregacao: string): Omit<Member, "id"> {
+/** A cidade da igreja entra como padrão; a posição no mapa é calculada depois, no servidor, pelo bairro. */
+function buildMember(get: (k: CampoKey) => string, congregacao: string, igreja: Endereco): Omit<Member, "id"> {
   const bairro = get("bairro")
   return {
     nome: get("nome"),
@@ -75,8 +75,9 @@ function buildMember(get: (k: CampoKey) => string, congregacao: string): Omit<Me
     telefone: get("telefone"),
     email: get("email"),
     estadoCivil: "solteiro",
-    endereco: { rua: get("rua"), numero: "", bairro, cidade: "Goiânia", uf: "GO", cep: "" },
-    ...approxCoords(bairro),
+    endereco: { rua: get("rua"), numero: "", bairro, cidade: igreja.cidade, uf: igreja.uf, cep: "" },
+    lat: 0,
+    lng: 0,
     congregacao,
     cargo: get("cargo") || "Membro",
     ministerios: [],
@@ -92,6 +93,7 @@ function Planilha() {
   const router = useRouter()
   const addMembers = useApp((s) => s.addMembers)
   const congregacoes = useApp((s) => s.church.congregacoes)
+  const enderecoIgreja = useApp((s) => s.church.endereco)
   const [rows, setRows] = React.useState<string[][]>([])
   const [map, setMap] = React.useState<Record<CampoKey, number>>({} as Record<CampoKey, number>)
   const [cong, setCong] = React.useState(congregacoes[0] ?? "")
@@ -113,7 +115,7 @@ function Planilha() {
 
   async function importar() {
     if (map.nome == null || map.nome < 0) return toast.error("Indique qual coluna tem o nome")
-    const ms = body.map((r) => buildMember((k) => (map[k] >= 0 ? r[map[k]] ?? "" : ""), cong))
+    const ms = body.map((r) => buildMember((k) => (map[k] >= 0 ? r[map[k]] ?? "" : ""), cong, enderecoIgreja))
 
     // Valida linha a linha: importa as válidas e informa as que ficaram de fora (linha 1 é o cabeçalho).
     const validas: typeof ms = []
@@ -222,6 +224,7 @@ function Planilha() {
 function Foto() {
   const addMember = useApp((s) => s.addMember)
   const congregacoes = useApp((s) => s.church.congregacoes)
+  const enderecoIgreja = useApp((s) => s.church.endereco)
   const [img, setImg] = React.useState<string>()
   const [lendo, setLendo] = React.useState(false)
   const [campos, setCampos] = React.useState<Record<CampoKey, string> | null>(null)
@@ -240,7 +243,7 @@ function Foto() {
   async function salvar(e: React.FormEvent) {
     e.preventDefault()
     if (!campos) return
-    const m = buildMember((k) => campos[k], congregacoes[0] ?? "")
+    const m = buildMember((k) => campos[k], congregacoes[0] ?? "", enderecoIgreja)
     const erro = memberSchema.safeParse(m).error?.issues[0]
     if (erro) return toast.error(erro.message)
     const r = await addMember(m)

@@ -47,9 +47,11 @@ export default function PrivacidadePage() {
             de login, com as garantias contratuais do fornecedor.
           </li>
           <li>
-            Para marcar uma célula no mapa, o endereço digitado (rua, número, bairro, cidade e CEP, sem nome de pessoa) é
-            consultado no Nominatim, do OpenStreetMap, e na BrasilAPI. As imagens do mapa vêm do OpenStreetMap.
+            Para pôr a igreja e as células no mapa, o endereço digitado (rua, número, bairro, cidade e CEP, sem nome de
+            pessoa) é consultado no Nominatim, do OpenStreetMap, e na BrasilAPI. Para os membros, só o bairro e a cidade
+            são consultados. As imagens do mapa vêm do OpenStreetMap.
           </li>
+          <li>A logo da igreja fica guardada no Clerk, junto com a organização da igreja.</li>
         </ul>
       </Secao>
 

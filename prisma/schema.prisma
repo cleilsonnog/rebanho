@@ -23,6 +23,11 @@ model Church {
   cidade     String  @default("")
   uf         String  @default("") @db.Char(2)
   cep        String  @default("")
+  /// Posição da igreja no mapa (centro dos mapas do painel), calculada pelo endereço.
+  lat        Float?
+  lng        Float?
+  /// Logo guardada no Clerk (organização); aqui fica só o endereço da imagem.
+  logoUrl    String?
 
   whatsappConectado  Boolean @default(false)
   whatsappNumero     String?
@@ -332,6 +337,16 @@ model CellStudy {
   updatedAt  DateTime @updatedAt
 
   @@unique([churchId, semana])
+}
+
+/// Centro aproximado de cada bairro, já consultado no OpenStreetMap. Dado público, compartilhado
+/// entre igrejas, para não repetir consultas (o Nominatim pede no máximo 1 por segundo).
+model GeoBairro {
+  /// "bairro|cidade|uf" em minúsculas e sem acento
+  chave     String   @id
+  lat       Float?
+  lng       Float?
+  createdAt DateTime @default(now())
 }
 
 /// Contador do rate limit: quantas vezes `key` agiu na janela que começa em `windowStart`.

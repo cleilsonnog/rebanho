@@ -2,6 +2,7 @@ import { BadgeCheck } from "lucide-react"
 import { QRCodeSVG } from "qrcode.react"
 
 import { LogoMark } from "@/components/brand"
+import { LogoImg } from "@/components/app/church-logo"
 import { MemberAvatar } from "@/components/app/member-avatar"
 import { STATUS_LABEL, formatDate } from "@/lib/format"
 import type { Church, Member } from "@/lib/types"
@@ -12,7 +13,7 @@ export function MemberCardFront({ m, church, validade }: { m: Member; church: Ch
     <div className="relative aspect-[1.586] w-full max-w-[400px] overflow-hidden rounded-2xl bg-linear-to-br from-[#5b2fc4] to-[#3a1d86] p-5 text-white shadow-lg">
       <div className="absolute -top-16 -right-16 size-48 rounded-full bg-white/10" />
       <div className="relative flex items-center gap-2">
-        <LogoMark className="size-7" />
+        <LogoImg church={church} className="size-7 rounded bg-white p-0.5" fallback={<LogoMark className="size-7" />} />
         <p className="truncate text-sm font-semibold">{church.nome}</p>
       </div>
       <div className="relative mt-4 flex items-center gap-4">

@@ -1,9 +1,10 @@
 "use client"
 
 import * as React from "react"
-import { Check, Database, Download, Plus, Trash2, X } from "lucide-react"
+import { Check, Database, Download, ImageUp, Loader2, MapPin, Plus, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
 
+import { ChurchLogo } from "@/components/app/church-logo"
 import { PageHeader } from "@/components/app/page-header"
 import { MemberAvatar } from "@/components/app/member-avatar"
 import { MemberPicker } from "@/components/app/member-picker"
@@ -24,6 +25,67 @@ import { useApp, useAppStore } from "@/lib/store"
 import type { Church, UserRole } from "@/lib/types"
 import { churchSchema, inviteSchema } from "@/lib/validations"
 
+/** Reduz a imagem para no máximo 512 px antes de enviar: fica leve e cabe no limite das Server Actions. */
+async function reduzir(file: File): Promise<Blob> {
+  const img = await createImageBitmap(file)
+  const escala = Math.min(1, 512 / Math.max(img.width, img.height))
+  const canvas = document.createElement("canvas")
+  canvas.width = Math.round(img.width * escala)
+  canvas.height = Math.round(img.height * escala)
+  canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height)
+  return new Promise((ok, erro) => canvas.toBlob((b) => (b ? ok(b) : erro(new Error("imagem"))), "image/png"))
+}
+
+function LogoCard() {
+  const temLogo = useApp((s) => Boolean(s.church.logoUrl))
+  const updateLogo = useApp((s) => s.updateLogo)
+  const removeLogo = useApp((s) => s.removeLogo)
+  const [enviando, setEnviando] = React.useState(false)
+  const input = React.useRef<HTMLInputElement>(null)
+
+  async function enviar(file?: File) {
+    if (!file) return
+    if (!file.type.startsWith("image/")) return toast.error("Escolha uma imagem PNG, JPG ou WebP.")
+    setEnviando(true)
+    try {
+      const form = new FormData()
+      form.set("logo", new File([await reduzir(file)], "logo.png", { type: "image/png" }))
+      await notify(updateLogo(form), "Logo atualizada")
+    } catch {
+      toast.error("Não foi possível ler essa imagem. Tente outra.")
+    } finally {
+      setEnviando(false)
+      if (input.current) input.current.value = ""
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Logo da igreja</CardTitle>
+        <CardDescription>Aparece no menu, nas carteirinhas, nos certificados e no estudo impresso.</CardDescription>
+      </CardHeader>
+      <CardContent className="flex items-center gap-4">
+        <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted/40">
+          <ChurchLogo className="size-full p-1" fallback={<ImageUp className="size-6 text-muted-foreground" />} />
+        </div>
+        <div className="flex flex-col gap-2">
+          <input ref={input} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(e) => enviar(e.target.files?.[0])} />
+          <Button type="button" variant="outline" size="sm" disabled={enviando} onClick={() => input.current?.click()}>
+            {enviando ? <Loader2 className="animate-spin" /> : <ImageUp />} {temLogo ? "Trocar logo" : "Enviar logo"}
+          </Button>
+          {temLogo && (
+            <Button type="button" variant="ghost" size="sm" disabled={enviando} onClick={() => confirm("Remover a logo?") && notify(removeLogo(), "Logo removida")}>
+              <Trash2 /> Remover
+            </Button>
+          )}
+          <p className="text-xs text-muted-foreground">PNG com fundo transparente fica melhor.</p>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 function IgrejaTab() {
   const church = useApp((s) => s.church)
   const updateChurch = useApp((s) => s.updateChurch)
@@ -38,7 +100,8 @@ function IgrejaTab() {
         e.preventDefault()
         submit(churchSchema, c, () => updateChurch(c), (salva) => {
           setC(salva)
-          toast.success("Dados da igreja salvos")
+          if (salva.lat !== 0 || salva.lng !== 0) toast.success("Dados salvos. A igreja já aparece no mapa.")
+          else toast.warning("Dados salvos, mas não achamos o endereço no mapa. Confira rua, bairro, cidade e CEP.")
         })
       }}
       noValidate
@@ -56,46 +119,64 @@ function IgrejaTab() {
             <Field className="sm:col-span-2"><FieldLabel htmlFor="email">E-mail</FieldLabel><Input {...invalid("email")} id="email" type="email" value={c.email} onChange={(e) => setC({ ...c, email: e.target.value })} /><FieldError>{errors.email}</FieldError></Field>
             <Field><FieldLabel htmlFor="rua">Endereço</FieldLabel><Input {...invalid("endereco.rua")} id="rua" value={c.endereco.rua} onChange={(e) => setEnd("rua", e.target.value)} /><FieldError>{errors["endereco.rua"]}</FieldError></Field>
             <Field><FieldLabel htmlFor="num">Número</FieldLabel><Input {...invalid("endereco.numero")} id="num" value={c.endereco.numero} onChange={(e) => setEnd("numero", e.target.value)} /><FieldError>{errors["endereco.numero"]}</FieldError></Field>
+            <Field><FieldLabel htmlFor="bairro">Bairro</FieldLabel><Input {...invalid("endereco.bairro")} id="bairro" value={c.endereco.bairro} onChange={(e) => setEnd("bairro", e.target.value)} /><FieldError>{errors["endereco.bairro"]}</FieldError></Field>
+            <Field><FieldLabel htmlFor="cep">CEP</FieldLabel><Input {...invalid("endereco.cep")} id="cep" inputMode="numeric" placeholder="00000-000" value={c.endereco.cep} onChange={(e) => setEnd("cep", e.target.value)} /><FieldError>{errors["endereco.cep"]}</FieldError></Field>
             <Field><FieldLabel htmlFor="cidade">Cidade</FieldLabel><Input {...invalid("endereco.cidade")} id="cidade" value={c.endereco.cidade} onChange={(e) => setEnd("cidade", e.target.value)} /><FieldError>{errors["endereco.cidade"]}</FieldError></Field>
             <Field><FieldLabel htmlFor="uf">UF</FieldLabel><Input {...invalid("endereco.uf")} id="uf" maxLength={2} value={c.endereco.uf} onChange={(e) => setEnd("uf", e.target.value.toUpperCase())} /><FieldError>{errors["endereco.uf"]}</FieldError></Field>
           </FieldGroup>
         </CardContent>
-        <CardFooter><Button type="submit" disabled={pending}>{pending ? "Salvando…" : "Salvar"}</Button></CardFooter>
+        <CardFooter className="flex-wrap gap-3">
+          <Button type="submit" disabled={pending}>{pending ? "Salvando…" : "Salvar"}</Button>
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            <MapPin className="size-3.5" />
+            {church.lat !== 0 || church.lng !== 0 ? "A igreja está no mapa. Os mapas do painel abrem nela." : "Salve o endereço completo para a igreja aparecer no mapa."}
+          </span>
+        </CardFooter>
       </Card>
-      <Card className="self-start">
-        <CardHeader>
-          <CardTitle>Congregações</CardTitle>
-          <CardDescription>Salve os dados da igreja para gravar as mudanças.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {c.congregacoes.map((x, i) => (
-            <div key={x} className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
-              {x}
-              {i > 0 && (
-                <Button type="button" variant="ghost" size="icon-xs" aria-label={`Remover ${x}`} onClick={() => setC({ ...c, congregacoes: c.congregacoes.filter((y) => y !== x) })}>
-                  <X />
-                </Button>
-              )}
+      <div className="space-y-4 self-start">
+        <LogoCard />
+        <Card>
+          <CardHeader>
+            <CardTitle>Congregações</CardTitle>
+            <CardDescription>A primeira é a própria igreja (sede). Salve os dados da igreja para gravar as mudanças.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {c.congregacoes.map((x, i) => (
+              <div key={x} className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
+                {i === 0 ? (
+                  <span>
+                    {x}
+                    <span className="block text-xs text-muted-foreground">{c.nome || "A própria igreja"}</span>
+                  </span>
+                ) : (
+                  x
+                )}
+                {i > 0 && (
+                  <Button type="button" variant="ghost" size="icon-xs" aria-label={`Remover ${x}`} onClick={() => setC({ ...c, congregacoes: c.congregacoes.filter((y) => y !== x) })}>
+                    <X />
+                  </Button>
+                )}
+              </div>
+            ))}
+            <div className="flex gap-2 pt-2">
+              <Input value={nova} onChange={(e) => setNova(e.target.value)} placeholder="Nova congregação" />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label="Adicionar"
+                onClick={() => {
+                  if (nova.trim() && !c.congregacoes.includes(nova.trim())) setC({ ...c, congregacoes: [...c.congregacoes, nova.trim()] })
+                  setNova("")
+                }}
+              >
+                <Plus />
+              </Button>
             </div>
-          ))}
-          <div className="flex gap-2 pt-2">
-            <Input value={nova} onChange={(e) => setNova(e.target.value)} placeholder="Nova congregação" />
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              aria-label="Adicionar"
-              onClick={() => {
-                if (nova.trim() && !c.congregacoes.includes(nova.trim())) setC({ ...c, congregacoes: [...c.congregacoes, nova.trim()] })
-                setNova("")
-              }}
-            >
-              <Plus />
-            </Button>
-          </div>
-          <FieldError>{errors.congregacoes ?? errors["congregacoes.0"]}</FieldError>
-        </CardContent>
-      </Card>
+            <FieldError>{errors.congregacoes ?? errors["congregacoes.0"]}</FieldError>
+          </CardContent>
+        </Card>
+      </div>
     </form>
   )
 }
@@ -265,18 +346,28 @@ function PlanoTab() {
 function DadosTab() {
   const store = useAppStore()
   const loadDemoData = useApp((s) => s.loadDemoData)
+  const clearData = useApp((s) => s.clearData)
   const [carregando, setCarregando] = React.useState(false)
+  const [apagar, setApagar] = React.useState(false)
+  const [confirmacao, setConfirmacao] = React.useState("")
+
+  async function apagarTudo() {
+    setCarregando(true)
+    if (await notify(clearData(confirmacao), "Dados apagados")) window.location.reload()
+    else setCarregando(false)
+  }
 
   async function carregarExemplo() {
-    if (!confirm("Isso APAGA todos os membros, visitas, lançamentos, eventos e certificados desta igreja e coloca dados de exemplo no lugar. Continuar?")) return
+    if (!confirm("Isso APAGA todos os membros, células, visitas, lançamentos, eventos e certificados desta igreja e coloca dados de exemplo no lugar. Continuar?")) return
     setCarregando(true)
     if (await notify(loadDemoData(), "Dados de exemplo carregados")) window.location.reload()
     else setCarregando(false)
   }
 
   function exportar() {
-    const { church, members, visits, transactions, events, certificates, users } = store.getState()
-    const blob = new Blob([JSON.stringify({ church, members, visits, transactions, events, certificates, users }, null, 2)], { type: "application/json" })
+    const { church, members, visits, transactions, events, certificates, cells, cellMeetings, cellStudies, users } = store.getState()
+    const dados = { church, members, visits, transactions, events, certificates, cells, cellMeetings, cellStudies, users }
+    const blob = new Blob([JSON.stringify(dados, null, 2)], { type: "application/json" })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
@@ -296,6 +387,33 @@ function DadosTab() {
           <Button variant="destructive" disabled={carregando} onClick={carregarExemplo}>
             <Database /> {carregando ? "Carregando…" : "Carregar dados de exemplo"}
           </Button>
+        </CardFooter>
+      </Card>
+      <Card className="border-destructive/40 md:col-span-2">
+        <CardHeader>
+          <CardTitle>Apagar dados</CardTitle>
+          <CardDescription>
+            Apaga membros, células, estudos, visitas, financeiro, agenda e certificados, como os dados de exemplo. O cadastro
+            da igreja, a logo e os usuários continuam. Não dá para desfazer: baixe o backup antes, se precisar.
+          </CardDescription>
+        </CardHeader>
+        <CardFooter>
+          <Dialog open={apagar} onOpenChange={(o) => { setApagar(o); setConfirmacao("") }}>
+            <DialogTrigger asChild><Button variant="destructive" disabled={carregando}><Trash2 /> Apagar dados da igreja</Button></DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Apagar todos os dados?</DialogTitle></DialogHeader>
+              <p className="text-sm text-muted-foreground">
+                Tudo o que foi cadastrado será apagado para sempre. Para confirmar, digite <strong className="text-foreground">APAGAR</strong>.
+              </p>
+              <Input autoFocus value={confirmacao} onChange={(e) => setConfirmacao(e.target.value)} placeholder="APAGAR" aria-label="Confirmação" />
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setApagar(false)}>Cancelar</Button>
+                <Button variant="destructive" disabled={confirmacao !== "APAGAR" || carregando} onClick={apagarTudo}>
+                  {carregando ? "Apagando…" : "Apagar para sempre"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </CardFooter>
       </Card>
     </div>

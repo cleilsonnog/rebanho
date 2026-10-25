@@ -118,7 +118,9 @@ export function CellFormDialog({
   function usarEnderecoDoAnfitriao(ids = d.anfitrioes) {
     const m = byId.get(ids[0])
     if (!m) return toast.error("Escolha o anfitrião primeiro.")
-    setD((s) => ({ ...s, endereco: { ...m.endereco }, lat: m.lat, lng: m.lng }))
+    // A posição do membro é aproximada (bairro); a da célula é a casa, então localiza pelo endereço.
+    setD((s) => ({ ...s, endereco: { ...m.endereco }, lat: 0, lng: 0 }))
+    if (m.endereco.rua || m.endereco.cep) localizar(m.endereco)
   }
 
   function setAnfitrioes(ids: string[]) {
@@ -128,10 +130,10 @@ export function CellFormDialog({
       usarEnderecoDoAnfitriao(ids)
   }
 
-  async function localizar() {
+  async function localizar(endereco = d.endereco) {
     setBuscando(true)
     try {
-      const r = await geocodeAddress(d.endereco)
+      const r = await geocodeAddress(endereco)
       if (!r.ok) return toast.error(r.error)
       setD((s) => ({ ...s, lat: r.data.lat, lng: r.data.lng }))
       toast.success(
@@ -352,7 +354,7 @@ export function CellFormDialog({
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={localizar}
+                  onClick={() => localizar()}
                   disabled={buscando}
                 >
                   {buscando ? (

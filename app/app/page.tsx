@@ -109,6 +109,19 @@ export default function DashboardPage() {
         {canWrite(papel, "membros") && <Button asChild><Link href="/app/membros/novo"><UserPlus /> Novo membro</Link></Button>}
       </PageHeader>
 
+      {papel === "admin" && (church.lat === 0 || !church.logoUrl) && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-highlight/40 bg-highlight/10 p-4 text-sm">
+          <p>
+            <span className="font-medium">Complete o cadastro da igreja:</span>{" "}
+            {[church.lat === 0 && "o endereço (para os mapas abrirem na igreja)", !church.logoUrl && "a logo (carteirinhas e certificados)"]
+              .filter(Boolean)
+              .join(" e ")}
+            .
+          </p>
+          <Button size="sm" variant="outline" asChild><Link href="/app/configuracoes">Ir para Configurações</Link></Button>
+        </div>
+      )}
+
       {estudo && <CellStudyCard key={estudo.id} study={estudo} className="mb-4" />}
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

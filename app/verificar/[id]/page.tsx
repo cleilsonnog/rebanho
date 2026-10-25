@@ -23,7 +23,7 @@ async function buscar(id: string) {
       cargo: true,
       membroDesde: true,
       congregation: { select: { nome: true } },
-      church: { select: { nome: true } },
+      church: { select: { nome: true, logoUrl: true } },
     },
   })
 }
@@ -57,7 +57,13 @@ export default async function VerificarPage({ params }: { params: Promise<{ id: 
             <>
               <MemberAvatar nome={m.nome} className="mx-auto size-20 text-2xl" />
               <p className="mt-4 font-heading text-2xl font-semibold">{m.nome}</p>
-              <p className="text-sm text-muted-foreground">{m.church.nome}</p>
+              <p className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                {m.church.logoUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={m.church.logoUrl} alt="" className="size-6 object-contain" />
+                )}
+                {m.church.nome}
+              </p>
               <div
                 className={`mt-6 flex items-center justify-center gap-2 rounded-xl p-3 font-medium ${
                   m.status === "ativo" ? "bg-success/12 text-success" : "bg-highlight/20 text-highlight-foreground"
