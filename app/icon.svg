@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Mesma marca de components/brand.tsx (LogoMark), com as cores da paleta em hex. -->
+  <rect width="32" height="32" rx="9" fill="#5f3cc5"/>
+  <path d="M13 25V12.5a5 5 0 1 1 10 0c0 2.2-1.6 3.6-3.5 3.6" fill="none" stroke="#fcfbff" stroke-width="2.6" stroke-linecap="round"/>
+  <circle cx="21.5" cy="23" r="2.4" fill="#f5ae39"/>
+</svg>
