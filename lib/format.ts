@@ -65,9 +65,9 @@ export const ROLE_LABEL: Record<UserRole, string> = {
 
 export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   admin: ["Tudo, inclusive usuários e plano"],
-  secretaria: ["Membros", "Visitas", "Células", "Estudo da semana", "Certificados", "Carteirinhas", "Agenda"],
+  secretaria: ["Membros", "Visitas", "Células", "Estudo da semana", "Certificados", "Carteirinhas", "Agenda", "Igreja toda ou só uma filial"],
   tesouraria: ["Financeiro", "Relatórios financeiros", "Nomes dos membros, sem endereço ou contato"],
-  pastor: ["Membros", "Visitas", "Estudo da semana", "Reuniões de célula", "Mapa", "Aniversários", "Agenda"],
+  pastor: ["Membros", "Visitas", "Estudo da semana", "Reuniões de célula", "Mapa", "Aniversários", "Agenda", "Igreja toda ou só uma filial"],
   lider: ["Só as pessoas da sua célula", "Reuniões da célula: presença, visitantes e observações", "Agenda"],
 }
 

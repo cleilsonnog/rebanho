@@ -78,6 +78,8 @@ export type CertificateStyle = "classico" | "moderno" | "minimalista"
 export interface Cell {
   id: string
   nome: string
+  /** Sede ou filial a que a célula pertence. */
+  congregacao: string
   /** 0 = domingo … 6 = sábado */
   diaSemana?: number
   horario: string
@@ -127,6 +129,20 @@ export interface AppUser {
   pendente: boolean
   /** Cadastro de membro da pessoa; é o que liga o líder de célula às células dele. */
   memberId?: string
+  /** Filial a que o acesso está restrito (secretaria ou pastor de filial). Vazio = igreja toda. */
+  congregacao?: string
+}
+
+/** Sede ou filial. A sede é a própria igreja: usa o endereço e a posição dela. */
+export interface Filial {
+  id: string
+  nome: string
+  sede: boolean
+  dirigente: string
+  telefone: string
+  endereco: Endereco
+  lat: number
+  lng: number
 }
 
 export interface Church {
@@ -137,7 +153,9 @@ export interface Church {
   telefone: string
   email: string
   endereco: Endereco
+  /** Nomes da sede e das filiais, a sede primeiro (é o que vai em `Member.congregacao`). */
   congregacoes: string[]
+  filiais: Filial[]
   /** Posição da igreja; 0/0 enquanto o endereço não foi localizado. */
   lat: number
   lng: number

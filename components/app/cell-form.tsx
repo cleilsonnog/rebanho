@@ -54,6 +54,7 @@ type Draft = Omit<Cell, "id">
 
 const vazio: Draft = {
   nome: "",
+  congregacao: "",
   diaSemana: undefined,
   horario: "",
   endereco: { rua: "", numero: "", bairro: "", cidade: "", uf: "", cep: "" },
@@ -78,12 +79,15 @@ export function CellFormDialog({
 }) {
   const members = useApp((s) => s.members)
   const cells = useApp((s) => s.cells)
+  const filiais = useApp((s) => s.church.congregacoes)
+  // Quem é de uma filial cadastra células só nela.
+  const minhaFilial = useApp((s) => s.me.congregacao)
   const addCell = useApp((s) => s.addCell)
   const updateCell = useApp((s) => s.updateCell)
   const { errors, pending, submit, invalid } = useFormAction()
   const [buscando, setBuscando] = React.useState(false)
   const [d, setD] = React.useState<Draft>(() => {
-    if (!cell) return vazio
+    if (!cell) return { ...vazio, congregacao: minhaFilial ?? filiais[0] ?? "" }
     const lideranca = new Set([
       ...cell.lideres,
       ...cell.colideres,
@@ -175,6 +179,16 @@ export function CellFormDialog({
         </DialogHeader>
         <form onSubmit={onSubmit} noValidate>
           <FieldGroup>
+            {filiais.length > 1 && (
+              <Field>
+                <FieldLabel>Sede ou filial</FieldLabel>
+                <Select value={d.congregacao || filiais[0]} onValueChange={(v) => set("congregacao", v)} disabled={Boolean(minhaFilial)}>
+                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>{filiais.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
+                </Select>
+                <FieldError>{errors.congregacao}</FieldError>
+              </Field>
+            )}
             <div className="grid gap-4 sm:grid-cols-[1fr_160px_120px]">
               <Field>
                 <FieldLabel htmlFor="cel-nome">Nome da célula</FieldLabel>

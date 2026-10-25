@@ -5,7 +5,8 @@ import { z } from "zod"
 import { secureAction } from "../action"
 import { ActionError } from "../church"
 import { db } from "../db"
-import { memberInclude, toDate, toMember } from "../data"
+import { filialDe, memberInclude, membrosScope, toDate, toMember } from "../data"
+import type { ChurchUser } from "../generated/prisma/client"
 import { aproximar, bairrosGuardados, chaveBairro, consultarBairro, espera, type Ponto } from "../geocode"
 import { limitar } from "../rate-limit"
 import { idSchema, importMembersSchema, memberSchema, type MemberInput } from "../validations"
@@ -17,10 +18,13 @@ async function congregacoes(churchId: string) {
   return new Map(cs.map((c) => [c.nome.toLowerCase(), c]))
 }
 
-function congregationId(mapa: Awaited<ReturnType<typeof congregacoes>>, nome: string) {
-  if (!nome) return null
+/** Id da sede/filial pelo nome. Quem é de uma filial só cadastra nela (sem filial informada, vai para a dela). */
+function congregationId(mapa: Awaited<ReturnType<typeof congregacoes>>, nome: string, user: ChurchUser) {
+  const minha = filialDe(user)
+  if (!nome) return minha
   const c = mapa.get(nome.toLowerCase())
   if (!c) throw new ActionError(`A congregação "${nome}" não existe nesta igreja.`)
+  if (minha && c.id !== minha) throw new ActionError("Você só pode cadastrar membros na sua filial.")
   return c.id
 }
 
@@ -47,10 +51,10 @@ function toRow({ endereco, congregacao: _c, nascimento, dataBatismo, membroDesde
 }
 
 export async function createMember(input: MemberInput) {
-  return secureAction("membros", memberSchema, input, async (m, { church }) => {
+  return secureAction("membros", memberSchema, input, async (m, { church, user }) => {
     const congs = await congregacoes(church.id)
     const row = await db.member.create({
-      data: { ...toRow(m), ...(await posicao(m.endereco)), churchId: church.id, congregationId: congregationId(congs, m.congregacao) },
+      data: { ...toRow(m), ...(await posicao(m.endereco)), churchId: church.id, congregationId: congregationId(congs, m.congregacao, user) },
       include: memberInclude,
     })
     return toMember(row)
@@ -59,12 +63,12 @@ export async function createMember(input: MemberInput) {
 
 export async function updateMember(id: string, input: MemberInput) {
   const schema = z.object({ id: idSchema, member: memberSchema })
-  return secureAction("membros", schema, { id, member: input }, async ({ id, member: m }, { church }) => {
+  return secureAction("membros", schema, { id, member: input }, async ({ id, member: m }, { church, user }) => {
     const congs = await congregacoes(church.id)
-    const atual = await db.member.findFirstOrThrow({ where: { id, churchId: church.id } })
+    const atual = await db.member.findFirstOrThrow({ where: { id, churchId: church.id, ...membrosScope(user) } })
     const row = await db.member.update({
       where: { id, churchId: church.id },
-      data: { ...toRow(m), ...(await posicao(m.endereco, atual)), congregationId: congregationId(congs, m.congregacao) },
+      data: { ...toRow(m), ...(await posicao(m.endereco, atual)), congregationId: congregationId(congs, m.congregacao, user) },
       include: memberInclude,
     })
     return toMember(row)
@@ -72,8 +76,8 @@ export async function updateMember(id: string, input: MemberInput) {
 }
 
 export async function deleteMember(id: string) {
-  return secureAction("membros", idSchema, id, async (id, { church }) => {
-    await db.member.delete({ where: { id, churchId: church.id } })
+  return secureAction("membros", idSchema, id, async (id, { church, user }) => {
+    await db.member.delete({ where: { id, churchId: church.id, ...membrosScope(user) } })
   })
 }
 
@@ -89,7 +93,7 @@ export async function importMembers(input: MemberInput[]) {
         ...toRow(m),
         ...(guardados.get(chaveBairro(m.endereco)) ? aproximar(guardados.get(chaveBairro(m.endereco))) : { lat: null, lng: null }),
         churchId: church.id,
-        congregationId: congregationId(congs, m.congregacao),
+        congregationId: congregationId(congs, m.congregacao, user),
       })),
     })
     return rows.map((r) => toMember({ ...r, congregation: r.congregationId ? { nome: nomes.get(r.congregationId)! } : null }))
@@ -103,10 +107,10 @@ const semPosicao = { OR: [{ lat: null }, { lat: 0, lng: 0 }], bairro: { not: "" 
  * no máximo 5 bairros novos, um por segundo; a tela chama de novo enquanto houver pendentes.
  */
 export async function localizarMembros() {
-  return secureAction("membros", z.undefined(), undefined, async (_, { church }) => {
+  return secureAction("membros", z.undefined(), undefined, async (_, { church, user }) => {
     await limitar("geocodificacao", church.id)
     const pendentes = await db.member.findMany({
-      where: { churchId: church.id, ...semPosicao },
+      where: { churchId: church.id, ...membrosScope(user), ...semPosicao },
       select: { id: true, bairro: true, cidade: true, uf: true },
       take: 500,
     })

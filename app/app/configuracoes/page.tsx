@@ -1,10 +1,11 @@
 "use client"
 
 import * as React from "react"
-import { Check, Database, Download, ImageUp, Loader2, MapPin, Plus, Trash2, X } from "lucide-react"
+import { Check, Database, Download, ImageUp, Loader2, MapPin, Plus, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { ChurchLogo } from "@/components/app/church-logo"
+import { FiliaisSettings } from "@/components/app/filiais-settings"
 import { PageHeader } from "@/components/app/page-header"
 import { MemberAvatar } from "@/components/app/member-avatar"
 import { MemberPicker } from "@/components/app/member-picker"
@@ -90,7 +91,6 @@ function IgrejaTab() {
   const church = useApp((s) => s.church)
   const updateChurch = useApp((s) => s.updateChurch)
   const [c, setC] = React.useState<Church>(church)
-  const [nova, setNova] = React.useState("")
   const { errors, pending, submit, invalid } = useFormAction()
   const setEnd = (k: keyof Church["endereco"], v: string) => setC((s) => ({ ...s, endereco: { ...s.endereco, [k]: v } }))
 
@@ -137,44 +137,11 @@ function IgrejaTab() {
         <LogoCard />
         <Card>
           <CardHeader>
-            <CardTitle>Congregações</CardTitle>
-            <CardDescription>A primeira é a própria igreja (sede). Salve os dados da igreja para gravar as mudanças.</CardDescription>
+            <CardTitle>Sede e filiais</CardTitle>
+            <CardDescription>
+              A igreja cadastrada aqui é a sede. Filiais, com endereço e dirigente, ficam na aba Filiais.
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2">
-            {c.congregacoes.map((x, i) => (
-              <div key={x} className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
-                {i === 0 ? (
-                  <span>
-                    {x}
-                    <span className="block text-xs text-muted-foreground">{c.nome || "A própria igreja"}</span>
-                  </span>
-                ) : (
-                  x
-                )}
-                {i > 0 && (
-                  <Button type="button" variant="ghost" size="icon-xs" aria-label={`Remover ${x}`} onClick={() => setC({ ...c, congregacoes: c.congregacoes.filter((y) => y !== x) })}>
-                    <X />
-                  </Button>
-                )}
-              </div>
-            ))}
-            <div className="flex gap-2 pt-2">
-              <Input value={nova} onChange={(e) => setNova(e.target.value)} placeholder="Nova congregação" />
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                aria-label="Adicionar"
-                onClick={() => {
-                  if (nova.trim() && !c.congregacoes.includes(nova.trim())) setC({ ...c, congregacoes: [...c.congregacoes, nova.trim()] })
-                  setNova("")
-                }}
-              >
-                <Plus />
-              </Button>
-            </div>
-            <FieldError>{errors.congregacoes ?? errors["congregacoes.0"]}</FieldError>
-          </CardContent>
         </Card>
       </div>
     </form>
@@ -193,6 +160,9 @@ function UsuariosTab() {
   const [nome, setNome] = React.useState("")
   const [email, setEmail] = React.useState("")
   const [memberId, setMemberId] = React.useState<string>()
+  const [acesso, setAcesso] = React.useState("")
+  const filiais = useApp((s) => s.church.congregacoes)
+  const temFilial = (p: UserRole) => p === "secretaria" || p === "pastor"
   const members = useApp((s) => s.members)
   const nomeDe = (id?: string) => members.find((m) => m.id === id)?.nome
 
@@ -218,13 +188,20 @@ function UsuariosTab() {
                 noValidate
                 onSubmit={(e) => {
                   e.preventDefault()
-                  const convite = { nome, email, papel, memberId: papel === "lider" ? memberId : undefined }
+                  const convite = {
+                    nome,
+                    email,
+                    papel,
+                    memberId: papel === "lider" ? memberId : undefined,
+                    congregacao: temFilial(papel) ? acesso : undefined,
+                  }
                   submit(inviteSchema, convite, () => addUser(convite), () => {
                     toast.success("Convite enviado por e-mail")
                     setOpen(false)
                     setNome("")
                     setEmail("")
                     setMemberId(undefined)
+                    setAcesso("")
                   })
                 }}
               >
@@ -236,6 +213,19 @@ function UsuariosTab() {
                       <SelectContent>{Object.entries(ROLE_LABEL).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
                     </Select>
                   </Field>
+                  {temFilial(papel) && filiais.length > 1 && (
+                    <Field>
+                      <FieldLabel>Acesso</FieldLabel>
+                      <Select value={acesso || "toda"} onValueChange={(v) => setAcesso(v === "toda" ? "" : v)}>
+                        <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="toda">Igreja toda (sede e filiais)</SelectItem>
+                          {filiais.map((f) => <SelectItem key={f} value={f}>Só {f}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <FieldDescription>Restrito a uma filial, só vê os membros, as células e as visitas dela.</FieldDescription>
+                    </Field>
+                  )}
                   {papel === "lider" && (
                     <Field>
                       <FieldLabel>Cadastro de membro do líder</FieldLabel>
@@ -271,6 +261,19 @@ function UsuariosTab() {
                     <SelectTrigger size="sm" className="w-44"><SelectValue /></SelectTrigger>
                     <SelectContent>{Object.entries(ROLE_LABEL).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
                   </Select>
+                  {temFilial(u.papel) && filiais.length > 1 && (
+                    <Select
+                      value={u.congregacao ?? "toda"}
+                      onValueChange={(v) => notify(updateUser(u.id, { congregacao: v === "toda" ? null : v }), v === "toda" ? "Acesso à igreja toda" : `Acesso só a ${v}`)}
+                      disabled={u.id === me.id}
+                    >
+                      <SelectTrigger size="sm" className="mt-1.5 w-44"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="toda">Igreja toda</SelectItem>
+                        {filiais.map((f) => <SelectItem key={f} value={f}>Só {f}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  )}
                   {u.papel === "lider" && (
                     <div className="mt-1.5 w-44">
                       <MemberPicker
@@ -437,11 +440,13 @@ export default function ConfiguracoesPage() {
       <Tabs defaultValue="igreja">
         <TabsList className="flex-wrap">
           <TabsTrigger value="igreja">Igreja</TabsTrigger>
+          <TabsTrigger value="filiais">Filiais</TabsTrigger>
           <TabsTrigger value="usuarios">Usuários e acesso</TabsTrigger>
           <TabsTrigger value="plano">Plano</TabsTrigger>
           <TabsTrigger value="dados">Dados</TabsTrigger>
         </TabsList>
         <TabsContent value="igreja"><IgrejaTab /></TabsContent>
+        <TabsContent value="filiais" className="mt-4"><FiliaisSettings /></TabsContent>
         <TabsContent value="usuarios"><UsuariosTab /></TabsContent>
         <TabsContent value="plano"><PlanoTab /></TabsContent>
         <TabsContent value="dados"><DadosTab /></TabsContent>

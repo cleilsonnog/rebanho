@@ -61,31 +61,48 @@ enum UserRole {
 /// Usuário do sistema dentro de uma igreja. O login é do Clerk; a função (papel) fica aqui,
 /// porque papéis customizados do Clerk são pagos em produção.
 model ChurchUser {
-  id                String   @id @default(cuid())
+  id                String        @id @default(cuid())
   churchId          String
-  church            Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  church            Church        @relation(fields: [churchId], references: [id], onDelete: Cascade)
   /// Preenchido no primeiro acesso; antes disso o convite está pendente.
   clerkUserId       String?
   clerkInvitationId String?
   nome              String
   email             String
-  papel             UserRole @default(lider)
-  ativo             Boolean  @default(true)
+  papel             UserRole      @default(lider)
+  ativo             Boolean       @default(true)
   /// Cadastro de membro desta pessoa. Para o líder de célula, diz quais células ele lidera.
-  memberId          String?  @unique
-  member            Member?  @relation(fields: [memberId], references: [id], onDelete: SetNull)
-  createdAt         DateTime @default(now())
+  memberId          String?       @unique
+  member            Member?       @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  /// Secretaria ou pastor de uma filial: só vê e altera os dados dela. Vazio = igreja toda.
+  /// Restrict: apagar a filial não pode, sem querer, liberar a igreja toda para esse usuário.
+  congregationId    String?
+  congregation      Congregation? @relation(fields: [congregationId], references: [id], onDelete: Restrict)
+  createdAt         DateTime      @default(now())
 
   @@unique([churchId, email])
   @@unique([churchId, clerkUserId])
 }
 
+/// Sede ou filial da igreja. A primeira (mais antiga) é a sede e usa o endereço da igreja.
 model Congregation {
-  id       String   @id @default(cuid())
-  churchId String
-  church   Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  nome     String
-  members  Member[]
+  id        String       @id @default(cuid())
+  churchId  String
+  church    Church       @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  nome      String
+  dirigente String       @default("")
+  telefone  String       @default("")
+  rua       String       @default("")
+  numero    String       @default("")
+  bairro    String       @default("")
+  cidade    String       @default("")
+  uf        String       @default("") @db.Char(2)
+  cep       String       @default("")
+  lat       Float?
+  lng       Float?
+  members   Member[]
+  cells     Cell[]
+  users     ChurchUser[]
 
   @@unique([churchId, nome])
 }
@@ -263,9 +280,12 @@ model Cell {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  leaders  CellLeader[]
-  members  Member[]
-  meetings CellMeeting[]
+  leaders        CellLeader[]
+  members        Member[]
+  meetings       CellMeeting[]
+  /// Filial a que a célula pertence (vazio = sede).
+  congregationId String?
+  congregation   Congregation? @relation(fields: [congregationId], references: [id], onDelete: SetNull)
 
   @@unique([churchId, nome])
 }

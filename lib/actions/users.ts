@@ -7,18 +7,29 @@ import { clerkClient } from "@clerk/nextjs/server"
 import { secureAction } from "../action"
 import { ActionError } from "../church"
 import { db } from "../db"
-import { assertMembers, toUser } from "../data"
+import { assertMembers, toUser, userInclude } from "../data"
 import { limitar } from "../rate-limit"
 import { idSchema, inviteSchema, updateUserSchema } from "../validations"
 
 // Gestão de usuários é só do admin (área `null` no secureAction).
 
+/** Id da filial pelo nome; vazio = igreja toda. A restrição por filial só vale para secretaria e pastor. */
+async function filialId(churchId: string, nome: string | null | undefined, papel: string) {
+  if (!nome || (papel !== "secretaria" && papel !== "pastor")) return null
+  const c = await db.congregation.findFirst({ where: { churchId, nome }, select: { id: true } })
+  if (!c) throw new ActionError(`A filial "${nome}" não existe.`)
+  return c.id
+}
+
 export async function inviteUser(input: z.input<typeof inviteSchema>) {
-  return secureAction(null, inviteSchema, input, async ({ nome, email, papel, memberId }, { church, user }) => {
+  return secureAction(null, inviteSchema, input, async ({ nome, email, papel, memberId, congregacao }, { church, user }) => {
     if (!church.clerkOrgId) throw new ActionError("Igreja sem organização no Clerk.")
     if (memberId) await assertMembers(church.id, [memberId])
+    const congregationId = await filialId(church.id, congregacao, papel)
     await limitar("convite", church.id)
-    const row = await db.churchUser.create({ data: { churchId: church.id, nome, email: email.toLowerCase(), papel, memberId } })
+    const row = await db.churchUser.create({
+      data: { churchId: church.id, nome, email: email.toLowerCase(), papel, memberId, congregationId },
+    })
 
     // O link do e-mail volta para o login do Rebanho (o <SignIn /> trata o convite), e não para a página padrão do Clerk.
     const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_APP_URL
@@ -32,7 +43,9 @@ export async function inviteUser(input: z.input<typeof inviteSchema>) {
         role: "org:member",
         redirectUrl: origin ? `${origin}/entrar` : undefined,
       })
-      return toUser(await db.churchUser.update({ where: { id: row.id }, data: { clerkInvitationId: convite.id } }))
+      return toUser(
+        await db.churchUser.update({ where: { id: row.id }, data: { clerkInvitationId: convite.id }, include: userInclude })
+      )
     } catch (e) {
       await db.churchUser.delete({ where: { id: row.id } })
       console.error("[inviteUser] Clerk", e)
@@ -43,11 +56,18 @@ export async function inviteUser(input: z.input<typeof inviteSchema>) {
 
 export async function updateUser(id: string, input: z.input<typeof updateUserSchema>) {
   const schema = updateUserSchema.extend({ id: idSchema })
-  return secureAction(null, schema, { ...input, id }, async ({ id, ...data }, { church, user }) => {
+  return secureAction(null, schema, { ...input, id }, async ({ id, congregacao, ...data }, { church, user }) => {
     // Impede o admin de se rebaixar ou se desativar e deixar a igreja sem administrador.
     if (id === user.id && (data.papel || data.ativo !== undefined)) throw new ActionError("Você não pode alterar o seu próprio acesso.")
     if (data.memberId) await assertMembers(church.id, [data.memberId])
-    return toUser(await db.churchUser.update({ where: { id, churchId: church.id }, data }))
+    const atual = await db.churchUser.findUniqueOrThrow({ where: { id, churchId: church.id } })
+    const papel = data.papel ?? atual.papel
+    // Trocar para uma função sem filial (ex.: tesouraria) limpa a restrição; mudar a filial só se veio no pedido.
+    const congregationId =
+      congregacao !== undefined ? await filialId(church.id, congregacao, papel) : papel === "secretaria" || papel === "pastor" ? undefined : null
+    return toUser(
+      await db.churchUser.update({ where: { id, churchId: church.id }, data: { ...data, congregationId }, include: userInclude })
+    )
   })
 }
 

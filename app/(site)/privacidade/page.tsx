@@ -66,7 +66,7 @@ export default function PrivacidadePage() {
           <li>
             Endereços, mapa e anotações de visitas pastorais só vão para o administrador, a secretaria e o pastor. O líder de
             célula recebe apenas as pessoas da sua célula, sem posição no mapa. A tesouraria recebe só os nomes, sem
-            endereço nem contato.
+            endereço nem contato. A secretaria ou o pastor de uma filial pode ficar restrito aos dados dela.
           </li>
           <li>
             No mapa de membros, o pino fica numa posição aproximada do bairro, não na casa. Só a casa onde a célula se

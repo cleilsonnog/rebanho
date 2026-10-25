@@ -16,7 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TODAY } from "@/lib/format"
 import { canWrite } from "@/lib/permissions"
-import { useApp } from "@/lib/store"
+import { useApp, useCongregacoesPermitidas } from "@/lib/store"
 import type { Endereco, Member } from "@/lib/types"
 import { memberSchema } from "@/lib/validations"
 
@@ -92,7 +92,7 @@ const MODELO = "Nome;Telefone;E-mail;Nascimento;Sexo;Bairro;Endereço;Cargo\nMar
 function Planilha() {
   const router = useRouter()
   const addMembers = useApp((s) => s.addMembers)
-  const congregacoes = useApp((s) => s.church.congregacoes)
+  const congregacoes = useCongregacoesPermitidas()
   const enderecoIgreja = useApp((s) => s.church.endereco)
   const [rows, setRows] = React.useState<string[][]>([])
   const [map, setMap] = React.useState<Record<CampoKey, number>>({} as Record<CampoKey, number>)
@@ -223,7 +223,7 @@ function Planilha() {
 
 function Foto() {
   const addMember = useApp((s) => s.addMember)
-  const congregacoes = useApp((s) => s.church.congregacoes)
+  const congregacoes = useCongregacoesPermitidas()
   const enderecoIgreja = useApp((s) => s.church.endereco)
   const [img, setImg] = React.useState<string>()
   const [lendo, setLendo] = React.useState(false)

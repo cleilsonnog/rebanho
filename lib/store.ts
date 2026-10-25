@@ -12,7 +12,7 @@ import * as finance from "./actions/finance"
 import * as members from "./actions/members"
 import * as users from "./actions/users"
 import * as visits from "./actions/visits"
-import type { AppData, AppUser, Cell, CellMeeting, CellStudy, Church, ChurchEvent, IssuedCertificate, Member, Transaction, Visit, WhatsAppSettings } from "./types"
+import type { AppData, AppUser, Cell, CellMeeting, CellStudy, Church, Filial, ChurchEvent, IssuedCertificate, Member, Transaction, Visit, WhatsAppSettings } from "./types"
 
 type Input<F extends (...args: never[]) => unknown> = Parameters<F>[0]
 
@@ -45,6 +45,8 @@ interface AppState extends AppData {
   addCertificates: (c: Input<typeof certificates.issueCertificates>) => Promise<ActionResult<IssuedCertificate[]>>
 
   updateChurch: (c: Input<typeof church.updateChurch>) => Promise<ActionResult<Church>>
+  saveFilial: (id: string | undefined, f: Input<typeof church.createFilial>) => Promise<ActionResult<Filial[]>>
+  removeFilial: (id: string) => Promise<ActionResult<Filial[]>>
   updateLogo: (form: FormData) => Promise<ActionResult<string>>
   removeLogo: () => Promise<ActionResult>
   updateWhatsApp: (w: Input<typeof church.updateWhatsApp>) => Promise<ActionResult<WhatsAppSettings>>
@@ -144,6 +146,15 @@ function createAppStore(data: AppData) {
       apply(certificates.issueCertificates(c), (cs) => set((s) => ({ certificates: [...cs, ...s.certificates] }))),
 
     updateChurch: (c) => apply(church.updateChurch(c), (ch) => set({ church: ch })),
+    // Mudou o nome ou excluiu uma filial: a tela recarrega os membros (router.refresh) para acompanhar.
+    saveFilial: (id, f) =>
+      apply(id ? church.updateFilial(id, f) : church.createFilial(f), (filiais) =>
+        set((s) => ({ church: { ...s.church, filiais, congregacoes: filiais.map((x) => x.nome) } }))
+      ),
+    removeFilial: (id) =>
+      apply(church.removeFilial(id), (filiais) =>
+        set((s) => ({ church: { ...s.church, filiais, congregacoes: filiais.map((x) => x.nome) } }))
+      ),
     updateLogo: (form) => apply(church.updateLogo(form), (logoUrl) => set((s) => ({ church: { ...s.church, logoUrl } }))),
     removeLogo: () => apply(church.removeLogo(), () => set((s) => ({ church: { ...s.church, logoUrl: undefined } }))),
     updateWhatsApp: (w) => apply(church.updateWhatsApp(w), (whatsapp) => set({ whatsapp })),
@@ -183,3 +194,10 @@ export function useApp<T>(selector?: (s: AppState) => T) {
 }
 
 export const useMember = (id: string) => useApp((s) => s.members.find((m) => m.id === id))
+
+/** Sede e filiais em que o usuário pode cadastrar: só a dele, se o acesso for restrito a uma filial. */
+export function useCongregacoesPermitidas() {
+  const todas = useApp((s) => s.church.congregacoes)
+  const minha = useApp((s) => s.me.congregacao)
+  return React.useMemo(() => (minha ? [minha] : todas), [minha, todas])
+}

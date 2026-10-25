@@ -4,12 +4,12 @@ import type { z } from "zod"
 
 import { secureAction } from "../action"
 import { db } from "../db"
-import { assertMembers, toDate, toVisit } from "../data"
+import { assertMembers, membrosScope, toDate, toVisit } from "../data"
 import { idSchema, visitSchema } from "../validations"
 
 export async function createVisit(input: z.input<typeof visitSchema>) {
-  return secureAction("visitas", visitSchema, input, async ({ membroId, data, proximaVisita, ...v }, { church }) => {
-    await assertMembers(church.id, [membroId])
+  return secureAction("visitas", visitSchema, input, async ({ membroId, data, proximaVisita, ...v }, { church, user }) => {
+    await assertMembers(church.id, [membroId], membrosScope(user))
     const row = await db.visit.create({
       data: {
         ...v,
@@ -24,7 +24,7 @@ export async function createVisit(input: z.input<typeof visitSchema>) {
 }
 
 export async function deleteVisit(id: string) {
-  return secureAction("visitas", idSchema, id, async (id, { church }) => {
-    await db.visit.delete({ where: { id, churchId: church.id } })
+  return secureAction("visitas", idSchema, id, async (id, { church, user }) => {
+    await db.visit.delete({ where: { id, churchId: church.id, member: membrosScope(user) } })
   })
 }

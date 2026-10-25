@@ -14,6 +14,7 @@ import { PageHeader, StatCard } from "@/components/app/page-header"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { TODAY, cellSchedule, formatDate, inicioDaSemana } from "@/lib/format"
 import { canWrite } from "@/lib/permissions"
 import { useApp } from "@/lib/store"
@@ -28,8 +29,15 @@ const nomes = (ids: string[], byId: Map<string, { nome: string }>) =>
 
 function CelulasPageContent() {
   const router = useRouter()
-  const cells = useApp((s) => s.cells)
-  const meetings = useApp((s) => s.cellMeetings)
+  const todas = useApp((s) => s.cells)
+  const todasReunioes = useApp((s) => s.cellMeetings)
+  const filiais = useApp((s) => s.church.congregacoes)
+  const [filial, setFilial] = React.useState("todas")
+  const cells = React.useMemo(() => todas.filter((c) => filial === "todas" || c.congregacao === filial), [todas, filial])
+  const meetings = React.useMemo(() => {
+    const ids = new Set(cells.map((c) => c.id))
+    return todasReunioes.filter((r) => ids.has(r.celulaId))
+  }, [cells, todasReunioes])
   const members = useApp((s) => s.members)
   const pode = useApp((s) => canWrite(s.me.papel, "celulas"))
   const me = useApp((s) => s.me)
@@ -48,6 +56,15 @@ function CelulasPageContent() {
   return (
     <>
       <PageHeader title="Células" description="Liderança, presença, visitantes e a casa de cada célula no mapa.">
+        {filiais.length > 1 && !me.congregacao && (
+          <Select value={filial} onValueChange={setFilial}>
+            <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Sede e filiais</SelectItem>
+              {filiais.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
         <Button variant="outline" asChild><Link href="/app/celulas/estudos"><BookOpen /> Estudo da semana</Link></Button>
         {pode && <Button onClick={() => setOpen(true)}><Plus /> Nova célula</Button>}
       </PageHeader>
@@ -88,7 +105,10 @@ function CelulasPageContent() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="font-heading text-lg font-semibold">{c.nome}</p>
-                    <p className="text-sm text-muted-foreground">{cellSchedule(c)}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {cellSchedule(c)}
+                      {filiais.length > 1 && c.congregacao && ` · ${c.congregacao}`}
+                    </p>
                   </div>
                   <Badge variant="secondary">{c.membroIds.length} pessoas</Badge>
                 </div>

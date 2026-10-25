@@ -12,6 +12,7 @@ import type {
   CellStudy,
   Church,
   ChurchEvent,
+  Filial,
   IssuedCertificate,
   Member,
   Transaction,
@@ -90,11 +91,13 @@ export const toCertificate = (r: P.Certificate): IssuedCertificate => ({
 })
 
 export const cellInclude = {
+  congregation: { select: { nome: true } },
   leaders: { select: { memberId: true, funcao: true } },
   members: { select: { id: true }, orderBy: { nome: "asc" } },
 } as const
 
 type CellRow = P.Cell & {
+  congregation: { nome: string } | null
   leaders: { memberId: string; funcao: P.CellRole }[]
   members: { id: string }[]
 }
@@ -104,6 +107,7 @@ export function toCell(r: CellRow): Cell {
   return {
     id: r.id,
     nome: r.nome,
+    congregacao: r.congregation?.nome ?? "",
     diaSemana: r.diaSemana ?? undefined,
     horario: r.horario,
     endereco: { rua: r.rua, numero: r.numero, bairro: r.bairro, cidade: r.cidade, uf: r.uf.trim(), cep: r.cep },
@@ -140,7 +144,9 @@ export const toCellStudy = (r: P.CellStudy): CellStudy => ({
   texto: r.texto,
 })
 
-export const toUser = (r: P.ChurchUser): AppUser => ({
+export const userInclude = { congregation: { select: { nome: true } } } as const
+
+export const toUser = (r: P.ChurchUser & { congregation?: { nome: string } | null }): AppUser => ({
   id: r.id,
   nome: r.nome,
   email: r.email,
@@ -148,18 +154,32 @@ export const toUser = (r: P.ChurchUser): AppUser => ({
   ativo: r.ativo,
   pendente: !r.clerkUserId,
   memberId: r.memberId ?? undefined,
+  congregacao: r.congregation?.nome,
 })
+
+/** Filial a que o usuário está restrito. Só vale para secretaria e pastor; `null` = igreja toda. */
+export function filialDe(user: P.ChurchUser) {
+  return user.papel === "secretaria" || user.papel === "pastor" ? user.congregationId : null
+}
+
+/** Membros que o usuário pode ver e alterar, pela filial (o líder de célula usa `cellScope`). */
+export function membrosScope(user: P.ChurchUser): { congregationId?: string } {
+  const filial = filialDe(user)
+  return filial ? { congregationId: filial } : {}
+}
 
 /**
  * Células que o usuário pode ver e lançar reunião. O líder de célula só aquelas em que é líder ou colíder
- * (pelo cadastro de membro ligado ao usuário); as outras funções, todas.
+ * (pelo cadastro de membro ligado ao usuário); quem é de uma filial, as da filial; os demais, todas.
  */
 export function cellScope(user: P.ChurchUser): P.Prisma.CellWhereInput {
+  const filial = filialDe(user)
+  if (filial) return { congregationId: filial }
   if (user.papel !== "lider") return {}
   return { leaders: { some: { memberId: user.memberId ?? "-", funcao: { in: ["lider", "colider"] } } } }
 }
 
-export const toChurch = (r: P.Church, congregacoes: string[]): Church => ({
+export const toChurch = (r: P.Church, filiais: Filial[]): Church => ({
   nome: r.nome,
   sigla: r.sigla,
   cnpj: r.cnpj,
@@ -167,7 +187,8 @@ export const toChurch = (r: P.Church, congregacoes: string[]): Church => ({
   telefone: r.telefone,
   email: r.email,
   endereco: { rua: r.rua, numero: r.numero, bairro: r.bairro, cidade: r.cidade, uf: r.uf.trim(), cep: r.cep },
-  congregacoes,
+  congregacoes: filiais.map((f) => f.nome),
+  filiais,
   lat: r.lat ?? 0,
   lng: r.lng ?? 0,
   logoUrl: r.logoUrl ?? undefined,
@@ -181,9 +202,23 @@ export const toWhatsApp = (r: P.Church): WhatsAppSettings => ({
   envioAutomatico: r.whatsappAutomatico,
 })
 
-export async function congregationNames(churchId: string) {
-  const cs = await db.congregation.findMany({ where: { churchId }, orderBy: { id: "asc" }, select: { nome: true } })
-  return cs.map((c) => c.nome)
+/** Sede e filiais, a sede primeiro (a mais antiga). A sede usa o endereço e a posição da igreja. */
+export async function loadFiliais(church: P.Church): Promise<Filial[]> {
+  const cs = await db.congregation.findMany({ where: { churchId: church.id }, orderBy: { id: "asc" } })
+  return cs.map((c, i) => {
+    const sede = i === 0
+    const fonte = sede ? church : c
+    return {
+      id: c.id,
+      nome: c.nome,
+      sede,
+      dirigente: c.dirigente,
+      telefone: c.telefone,
+      endereco: { rua: fonte.rua, numero: fonte.numero, bairro: fonte.bairro, cidade: fonte.cidade, uf: fonte.uf.trim(), cep: fonte.cep },
+      lat: fonte.lat ?? 0,
+      lng: fonte.lng ?? 0,
+    }
+  })
 }
 
 const SEM_ENDERECO = { rua: "", numero: "", bairro: "", cidade: "", uf: "", cep: "" }
@@ -203,17 +238,19 @@ export async function loadAppData({ church, user }: Session): Promise<AppData> {
   const admin = user.papel === "admin"
   const escopo = memberScope(user.papel)
   // O líder de célula só recebe as pessoas das células que lidera.
-  const membrosWhere = escopo === "celula" ? { churchId, cell: cellScope(user) } : { churchId }
+  const membrosWhere = escopo === "celula" ? { churchId, cell: cellScope(user) } : { churchId, ...membrosScope(user) }
+  // Visitas e certificados acompanham os membros que a pessoa vê (a filial dela, se for de filial).
+  const dosMembros = { churchId, member: membrosScope(user) }
 
   const umAnoAtras = new Date(Date.now() - 365 * 86_400_000)
 
-  const [congregacoes, members, visits, transactions, events, certificates, cells, cellMeetings, cellStudies, users] = await Promise.all([
-    congregationNames(churchId),
+  const [filiais, members, visits, transactions, events, certificates, cells, cellMeetings, cellStudies, users] = await Promise.all([
+    loadFiliais(church),
     db.member.findMany({ where: membrosWhere, include: memberInclude, orderBy: { nome: "asc" } }),
-    pode("visitas") ? db.visit.findMany({ where: { churchId }, orderBy: { data: "desc" } }) : [],
+    pode("visitas") ? db.visit.findMany({ where: dosMembros, orderBy: { data: "desc" } }) : [],
     pode("financeiro") ? db.transaction.findMany({ where: { churchId }, orderBy: { data: "desc" } }) : [],
     db.event.findMany({ where: { churchId }, orderBy: [{ data: "asc" }, { hora: "asc" }] }),
-    pode("certificados") ? db.certificate.findMany({ where: { churchId }, orderBy: { emitidoEm: "desc" } }) : [],
+    pode("certificados") ? db.certificate.findMany({ where: dosMembros, orderBy: { emitidoEm: "desc" } }) : [],
     pode("celulas")
       ? db.cell.findMany({ where: { churchId, ...cellScope(user) }, include: cellInclude, orderBy: { nome: "asc" } })
       : [],
@@ -225,12 +262,12 @@ export async function loadAppData({ church, user }: Session): Promise<AppData> {
         })
       : [],
     db.cellStudy.findMany({ where: { churchId, semana: { gte: umAnoAtras } }, orderBy: { semana: "desc" } }),
-    admin ? db.churchUser.findMany({ where: { churchId }, orderBy: { createdAt: "asc" } }) : [],
+    admin ? db.churchUser.findMany({ where: { churchId }, include: userInclude, orderBy: { createdAt: "asc" } }) : [],
   ])
 
   return {
-    me: toUser(user),
-    church: toChurch(church, congregacoes),
+    me: toUser({ ...user, congregation: filiais.find((f) => f.id === filialDe(user)) ?? null }),
+    church: toChurch(church, filiais),
     members: members.map((m) => protegerMembro(toMember(m), escopo)),
     visits: visits.map(toVisit),
     transactions: transactions.map(toTransaction),
@@ -245,8 +282,8 @@ export async function loadAppData({ church, user }: Session): Promise<AppData> {
 }
 
 /** Garante que todos os membros citados são da igreja; impede ligar registros a pessoas de outra igreja. */
-export async function assertMembers(churchId: string, ids: string[]) {
+export async function assertMembers(churchId: string, ids: string[], scope: P.Prisma.MemberWhereInput = {}) {
   const unicos = [...new Set(ids)]
-  const n = await db.member.count({ where: { churchId, id: { in: unicos } } })
+  const n = await db.member.count({ where: { churchId, ...scope, id: { in: unicos } } })
   if (n !== unicos.length) throw new ActionError("Pessoa não encontrada nesta igreja.")
 }

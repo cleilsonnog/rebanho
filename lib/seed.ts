@@ -258,6 +258,7 @@ export const seedChurch: Church = {
   email: "secretaria@montehermom.org",
   endereco: { rua: "Av. T-63", numero: "1200", bairro: "Setor Bueno", cidade: "Goiânia", uf: "GO", cep: "74230-100" },
   congregacoes: [...CONGREGACOES],
+  filiais: [],
   lat: -16.7063,
   lng: -49.2725,
 }

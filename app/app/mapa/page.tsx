@@ -10,6 +10,7 @@ import { AccessGuard } from "@/components/app/access-guard"
 import { PageHeader } from "@/components/app/page-header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { STATUS_COLOR, STATUS_LABEL } from "@/lib/format"
 import { canWrite } from "@/lib/permissions"
 import { useApp } from "@/lib/store"
@@ -60,7 +61,11 @@ function MapaContent() {
   const souAdmin = useApp((s) => s.me.papel === "admin")
   const localizando = useLocalizar()
   const [visible, setVisible] = React.useState<MemberStatus[]>(["ativo", "afastado", "visitante"])
-  const filtered = React.useMemo(() => members.filter((m) => visible.includes(m.status)), [members, visible])
+  const [filial, setFilial] = React.useState("todas")
+  const filtered = React.useMemo(
+    () => members.filter((m) => visible.includes(m.status) && (filial === "todas" || m.congregacao === filial)),
+    [members, visible, filial]
+  )
   const foraDoMapa = filtered.filter(semPosicao).length
   const focus = members.find((m) => m.id === params.get("membro"))
 
@@ -106,6 +111,15 @@ function MapaContent() {
           <Card>
             <CardHeader><CardTitle className="text-base">Mostrar</CardTitle></CardHeader>
             <CardContent className="space-y-3">
+              {church.filiais.length > 1 && (
+                <Select value={filial} onValueChange={setFilial}>
+                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todas">Sede e filiais</SelectItem>
+                    {church.congregacoes.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
               {(Object.keys(STATUS_LABEL) as MemberStatus[]).map((s) => (
                 <label key={s} className="flex items-center gap-2 text-sm">
                   <Checkbox

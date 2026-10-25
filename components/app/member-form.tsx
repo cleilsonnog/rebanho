@@ -16,7 +16,7 @@ import { useFormAction } from "@/hooks/use-form-action"
 import { STATUS_LABEL, TODAY } from "@/lib/format"
 import { CARGOS, MINISTERIOS } from "@/lib/seed"
 import { canWrite } from "@/lib/permissions"
-import { useApp } from "@/lib/store"
+import { useApp, useCongregacoesPermitidas } from "@/lib/store"
 import type { Member } from "@/lib/types"
 import { memberSchema } from "@/lib/validations"
 
@@ -42,7 +42,7 @@ const empty = (congregacao: string, cidade: string, uf: string): Draft => ({
 
 export function MemberForm({ member }: { member?: Member }) {
   const router = useRouter()
-  const congregacoes = useApp((s) => s.church.congregacoes)
+  const congregacoes = useCongregacoesPermitidas()
   const cidadeIgreja = useApp((s) => s.church.endereco)
   const members = useApp((s) => s.members)
   // Sugestões de bairro: os que já aparecem no cadastro desta igreja.

@@ -5,7 +5,19 @@ import { z } from "zod"
 import { secureAction } from "../action"
 import { ActionError, type Session } from "../church"
 import { db } from "../db"
-import { assertMembers, cellInclude, cellScope, cellMeetingInclude, toCell, toCellMeeting, toCellStudy, toDate } from "../data"
+import {
+  assertMembers,
+  cellInclude,
+  cellMeetingInclude,
+  cellScope,
+  filialDe,
+  loadFiliais,
+  membrosScope,
+  toCell,
+  toCellMeeting,
+  toCellStudy,
+  toDate,
+} from "../data"
 import { inicioDaSemana } from "../format"
 import type { CellRole } from "../generated/prisma/client"
 import { geocodeEndereco } from "../geocode"
@@ -17,17 +29,29 @@ type CellData = z.output<typeof cellSchema>
 /** Busca a célula dentro do que o usuário pode lançar reunião (o líder de célula, só as dele). */
 async function minhaCelula({ church, user }: Session, id: string) {
   const cell = await db.cell.findFirst({ where: { id, churchId: church.id, ...cellScope(user) }, include: cellInclude })
-  if (!cell) throw new ActionError("Você só pode alterar a célula que lidera.")
+  if (!cell) throw new ActionError("Você só pode alterar as células que estão sob a sua responsabilidade.")
   return cell
 }
 
-/** Grava a célula, a liderança e quem frequenta. Líderes, colíderes e anfitriões entram na lista de membros. */
-async function saveCell(churchId: string, id: string | undefined, c: CellData) {
-  const { endereco, lideres, colideres, anfitrioes, membroIds, diaSemana, ...campos } = c
-  const pessoas = [...new Set([...lideres, ...colideres, ...anfitrioes, ...membroIds])]
-  await assertMembers(churchId, pessoas)
+/** Filial da célula pelo nome (vazio = sede). Quem é de uma filial só grava células nela. */
+async function filialDaCelula({ church, user }: Session, nome: string) {
+  const filiais = await loadFiliais(church)
+  const escolhida = nome ? filiais.find((f) => f.nome === nome) : filiais[0]
+  if (!escolhida) throw new ActionError(`A filial "${nome}" não existe.`)
+  const minha = filialDe(user)
+  if (minha && escolhida.id !== minha) throw new ActionError("Você só pode cadastrar células na sua filial.")
+  return escolhida.id
+}
 
-  const dados = { ...campos, ...endereco, diaSemana: diaSemana ?? null }
+/** Grava a célula, a liderança e quem frequenta. Líderes, colíderes e anfitriões entram na lista de membros. */
+async function saveCell(session: Session, id: string | undefined, c: CellData) {
+  const churchId = session.church.id
+  const { endereco, lideres, colideres, anfitrioes, membroIds, diaSemana, congregacao, ...campos } = c
+  const pessoas = [...new Set([...lideres, ...colideres, ...anfitrioes, ...membroIds])]
+  // Quem é de uma filial só põe na célula pessoas da filial.
+  await assertMembers(churchId, pessoas, membrosScope(session.user))
+
+  const dados = { ...campos, ...endereco, diaSemana: diaSemana ?? null, congregationId: await filialDaCelula(session, congregacao) }
   const lideranca = (cellId: string) =>
     (
       [
@@ -51,19 +75,21 @@ async function saveCell(churchId: string, id: string | undefined, c: CellData) {
 }
 
 export async function createCell(input: z.input<typeof cellSchema>) {
-  return secureAction("celulas", cellSchema, input, (c, { church }) => saveCell(church.id, undefined, c))
+  return secureAction("celulas", cellSchema, input, (c, session) => saveCell(session, undefined, c))
 }
 
 export async function updateCell(id: string, input: z.input<typeof cellSchema>) {
-  return secureAction("celulas", cellSchema.extend({ id: idSchema }), { ...input, id }, ({ id, ...c }, { church }) =>
-    saveCell(church.id, id, c)
-  )
+  return secureAction("celulas", cellSchema.extend({ id: idSchema }), { ...input, id }, async ({ id, ...c }, session) => {
+    await minhaCelula(session, id)
+    return saveCell(session, id, c)
+  })
 }
 
 /** Exclui a célula e as reuniões dela; os membros continuam cadastrados, só sem célula. */
 export async function deleteCell(id: string) {
-  return secureAction("celulas", idSchema, id, async (id, { church }) => {
-    await db.cell.delete({ where: { id, churchId: church.id } })
+  return secureAction("celulas", idSchema, id, async (id, session) => {
+    await minhaCelula(session, id)
+    await db.cell.delete({ where: { id, churchId: session.church.id } })
   })
 }
 
@@ -100,7 +126,8 @@ export async function deleteCellMeeting(id: string) {
 
 /** Publica (ou corrige) o estudo da semana, que vale para todas as células. */
 export async function saveCellStudy(input: z.input<typeof cellStudySchema>) {
-  return secureAction("estudos", cellStudySchema, input, async ({ semana, ...e }, { church }) => {
+  return secureAction("estudos", cellStudySchema, input, async ({ semana, ...e }, { church, user }) => {
+    if (filialDe(user)) throw new ActionError("O estudo da semana vale para a igreja toda e é publicado pela sede.")
     const inicio = toDate(inicioDaSemana(semana))
     const row = await db.cellStudy.upsert({
       where: { churchId_semana: { churchId: church.id, semana: inicio } },
@@ -112,7 +139,8 @@ export async function saveCellStudy(input: z.input<typeof cellStudySchema>) {
 }
 
 export async function deleteCellStudy(id: string) {
-  return secureAction("estudos", idSchema, id, async (id, { church }) => {
+  return secureAction("estudos", idSchema, id, async (id, { church, user }) => {
+    if (filialDe(user)) throw new ActionError("O estudo da semana vale para a igreja toda e é publicado pela sede.")
     await db.cellStudy.delete({ where: { id, churchId: church.id } })
   })
 }

@@ -10,6 +10,9 @@ const date = (iso: string) => new Date(`${iso}T00:00:00Z`)
 /** Apaga estudos, células, membros, visitas, lançamentos, eventos, certificados e congregações da igreja. */
 export async function clearChurchData(tx: Prisma.TransactionClient, churchId: string) {
   const where = { churchId }
+  // Quem tinha acesso só a uma filial fica desativado (as filiais vão ser apagadas): o admin reativa e
+  // escolhe a filial de novo. Apagar o vínculo sem desativar daria acesso à igreja toda.
+  await tx.churchUser.updateMany({ where: { churchId, congregationId: { not: null } }, data: { congregationId: null, ativo: false } })
   await tx.cell.deleteMany({ where })
   await tx.cellStudy.deleteMany({ where })
   await tx.visit.deleteMany({ where })
@@ -22,7 +25,9 @@ export async function clearChurchData(tx: Prisma.TransactionClient, churchId: st
 
 /** Insere os dados de exemplo na igreja, com ids novos para não colidir com os de outra igreja. */
 export async function insertDemoData(tx: Prisma.TransactionClient, churchId: string) {
-  await tx.congregation.createMany({ data: seedChurch.congregacoes.map((nome) => ({ churchId, nome })) })
+  await tx.congregation.createMany({
+    data: seedChurch.congregacoes.map((nome) => ({ churchId, nome, ...FILIAIS_EXEMPLO[nome] })),
+  })
   const congs = await tx.congregation.findMany({ where: { churchId } })
   const congId = new Map(congs.map((c) => [c.nome, c.id]))
   const memberId = new Map(seedMembers.map((m) => [m.id, randomUUID()]))
@@ -107,6 +112,34 @@ const ESTUDOS = [
   },
 ]
 
+/** Endereço e dirigente das filiais de exemplo (a sede usa o endereço da igreja). */
+const FILIAIS_EXEMPLO: Record<string, Omit<Prisma.CongregationCreateManyInput, "churchId" | "nome"> | undefined> = {
+  "Congregação Leste": {
+    dirigente: "Pb. André Lima",
+    telefone: "(62) 3211-4040",
+    rua: "Rua 220",
+    numero: "45",
+    bairro: "Setor Leste Universitário",
+    cidade: "Goiânia",
+    uf: "GO",
+    cep: "74610-200",
+    lat: -16.6795,
+    lng: -49.2412,
+  },
+  "Congregação Sul": {
+    dirigente: "Ev. Paulo Mendes",
+    telefone: "(62) 3255-1818",
+    rua: "Av. Rio Verde",
+    numero: "980",
+    bairro: "Parque Amazônia",
+    cidade: "Goiânia",
+    uf: "GO",
+    cep: "74840-180",
+    lat: -16.7392,
+    lng: -49.2849,
+  },
+}
+
 const CELULAS = [
   { nome: "Betesda", diaSemana: 3, horario: "19:30" },
   { nome: "Siloé", diaSemana: 4, horario: "20:00" },
@@ -117,6 +150,7 @@ const CELULAS = [
 /** Uma célula por bairro: casal de líderes, casal de colíderes, anfitriões e as últimas quatro reuniões. */
 async function insertDemoCells(tx: Prisma.TransactionClient, churchId: string, novoId: (seedId: string) => string) {
   // Adultos ativos, casados primeiro: a liderança sai daqui.
+  const sede = await tx.congregation.findFirstOrThrow({ where: { churchId }, orderBy: { id: "asc" } })
   const adultos = seedMembers
     .filter((m) => m.status === "ativo" && m.nascimento <= "2004-01-01")
     .sort((a, b) => Number(b.estadoCivil === "casado") - Number(a.estadoCivil === "casado"))
@@ -137,7 +171,7 @@ async function insertDemoCells(tx: Prisma.TransactionClient, churchId: string, n
     const membros = [...lideranca, ...doBairro.filter((m) => !lideranca.has(m.id)).slice(0, 8).map((m) => m.id)]
 
     const cell = await tx.cell.create({
-      data: { churchId, ...c, ...anfitriao.endereco, lat: anfitriao.lat, lng: anfitriao.lng },
+      data: { churchId, congregationId: sede.id, ...c, ...anfitriao.endereco, lat: anfitriao.lat, lng: anfitriao.lng },
     })
     await tx.cellLeader.createMany({
       data: [

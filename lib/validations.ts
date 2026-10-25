@@ -146,6 +146,8 @@ const membroIds = (max: number, msg: string) =>
 
 export const cellSchema = z.object({
   nome: obrigatorio(60, "Nome da célula"),
+  /** Sede ou filial (nome); vazio = sede. */
+  congregacao: texto(100),
   diaSemana: z.number().int().min(0).max(6).optional(),
   horario: z.union([z.literal(""), z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Horário inválido")]),
   endereco: enderecoSchema,
@@ -188,11 +190,13 @@ export const churchSchema = z.object({
   telefone,
   email,
   endereco: enderecoSchema,
-  congregacoes: z
-    .array(obrigatorio(100, "Congregação"))
-    .min(1, "Mantenha ao menos uma congregação")
-    .max(50)
-    .refine((cs) => new Set(cs.map((c) => c.toLowerCase())).size === cs.length, "Congregações repetidas"),
+})
+
+export const filialSchema = z.object({
+  nome: obrigatorio(100, "Nome da filial"),
+  dirigente: texto(120),
+  telefone,
+  endereco: enderecoSchema,
 })
 
 export const whatsappSchema = z
@@ -213,6 +217,8 @@ export const inviteSchema = z
     email: z.email("E-mail inválido").max(254),
     papel: roleSchema,
     memberId: id.optional(),
+    /** Nome da filial a que o acesso fica restrito; vazio = igreja toda. */
+    congregacao: opcional(100),
   })
   .refine((u) => u.papel !== "lider" || u.memberId, {
     path: ["memberId"],
@@ -220,7 +226,7 @@ export const inviteSchema = z
   })
 
 export const updateUserSchema = z
-  .object({ papel: roleSchema, ativo: z.boolean(), memberId: id.nullable() })
+  .object({ papel: roleSchema, ativo: z.boolean(), memberId: id.nullable(), congregacao: z.string().trim().max(100).nullable() })
   .partial()
 
 export const idSchema = id

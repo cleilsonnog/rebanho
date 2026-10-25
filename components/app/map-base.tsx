@@ -32,16 +32,32 @@ const igrejaIcon = L.divIcon({
   html: `<span style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#e8a317;border:3px solid white;box-shadow:0 1px 4px rgba(0,0,0,.35)"><svg style="transform:rotate(45deg)" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M9 5h6M5 22V12l7-4 7 4v10M10 22v-5h4v5"/></svg></span>`,
 })
 
-/** Pino da igreja (prédio), em âmbar para se destacar dos membros e das células. */
+/**
+ * Pinos da sede e das filiais (prédio), em âmbar para se destacar dos membros e das células.
+ * A sede é a própria igreja; as filiais aparecem com o nome e o dirigente.
+ */
 export function ChurchMarker({ church }: { church: Church }) {
-  if (!temPosicao(church)) return null
+  const filiais = church.filiais.filter((f) => !f.sede && temPosicao(f))
   return (
-    <Marker position={[church.lat, church.lng]} icon={igrejaIcon} zIndexOffset={1000}>
-      <Popup>
-        <p className="font-semibold">{church.nome}</p>
-        <p className="text-xs opacity-70">{church.endereco.rua}, {church.endereco.numero} · {church.endereco.bairro}</p>
-      </Popup>
-    </Marker>
+    <>
+      {temPosicao(church) && (
+        <Marker position={[church.lat, church.lng]} icon={igrejaIcon} zIndexOffset={1000}>
+          <Popup>
+            <p className="font-semibold">{church.nome}</p>
+            <p className="text-xs opacity-70">Sede · {church.endereco.rua}, {church.endereco.numero} · {church.endereco.bairro}</p>
+          </Popup>
+        </Marker>
+      )}
+      {filiais.map((f) => (
+        <Marker key={f.id} position={[f.lat, f.lng]} icon={igrejaIcon} zIndexOffset={900}>
+          <Popup>
+            <p className="font-semibold">{f.nome}</p>
+            {f.dirigente && <p className="text-xs">Dirigente: {f.dirigente}</p>}
+            <p className="text-xs opacity-70">{f.endereco.rua}, {f.endereco.numero} · {f.endereco.bairro}</p>
+          </Popup>
+        </Marker>
+      ))}
+    </>
   )
 }
 

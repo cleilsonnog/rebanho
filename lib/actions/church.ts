@@ -5,19 +5,16 @@ import { clerkClient } from "@clerk/nextjs/server"
 
 import { secureAction } from "../action"
 import { db } from "../db"
-import { congregationNames, toChurch, toWhatsApp } from "../data"
+import { loadFiliais, toChurch, toWhatsApp } from "../data"
 import { ActionError } from "../church"
 import { clearChurchData, insertDemoData } from "../demo"
 import { geocodeEndereco } from "../geocode"
 import { limitar } from "../rate-limit"
-import { churchSchema, whatsappSchema } from "../validations"
+import { Prisma } from "../generated/prisma/client"
+import { churchSchema, filialSchema, idSchema, whatsappSchema } from "../validations"
 
 export async function updateChurch(input: z.input<typeof churchSchema>) {
-  return secureAction("configuracoes", churchSchema, input, async ({ endereco, congregacoes, ...c }, { church }) => {
-    const atuais = await db.congregation.findMany({ where: { churchId: church.id } })
-    const novas = new Set(congregacoes.map((n) => n.toLowerCase()))
-    const existentes = new Set(atuais.map((a) => a.nome.toLowerCase()))
-
+  return secureAction("configuracoes", churchSchema, input, async ({ endereco, ...c }, { church }) => {
     // Localiza a igreja quando o endereço muda; ela vira o centro dos mapas do painel.
     const mudou = (["rua", "numero", "bairro", "cidade", "uf", "cep"] as const).some((k) => church[k].trim() !== endereco[k])
     let posicao = {}
@@ -27,16 +24,7 @@ export async function updateChurch(input: z.input<typeof churchSchema>) {
       posicao = { lat: p?.lat ?? null, lng: p?.lng ?? null }
     }
 
-    const [row] = await db.$transaction([
-      db.church.update({ where: { id: church.id }, data: { ...c, ...endereco, ...posicao } }),
-      // Membros de uma congregação removida ficam sem congregação (onDelete: SetNull).
-      db.congregation.deleteMany({
-        where: { churchId: church.id, id: { in: atuais.filter((a) => !novas.has(a.nome.toLowerCase())).map((a) => a.id) } },
-      }),
-      db.congregation.createMany({
-        data: congregacoes.filter((n) => !existentes.has(n.toLowerCase())).map((nome) => ({ churchId: church.id, nome })),
-      }),
-    ])
+    const row = await db.church.update({ where: { id: church.id }, data: { ...c, ...endereco, ...posicao } })
 
     // Mantém o nome da organização no Clerk igual ao da igreja (aparece no seletor de igrejas).
     if (c.nome !== church.nome && church.clerkOrgId) {
@@ -45,7 +33,52 @@ export async function updateChurch(input: z.input<typeof churchSchema>) {
         console.error("[updateChurch] Clerk", e)
       })
     }
-    return toChurch(row, await congregationNames(church.id))
+    return toChurch(row, await loadFiliais(row))
+  })
+}
+
+/** Endereço e posição de uma filial; a sede não tem endereço próprio (usa o da igreja). */
+async function dadosFilial(churchId: string, { endereco, ...f }: z.output<typeof filialSchema>, sede: boolean) {
+  if (sede) return f
+  await limitar("geocodificacao", churchId)
+  const p = endereco.cidade ? await geocodeEndereco(endereco) : null
+  return { ...f, ...endereco, lat: p?.lat ?? null, lng: p?.lng ?? null }
+}
+
+/** Sede e filiais: cada uma com dirigente, telefone, endereço e pino no mapa. Só o admin. */
+export async function createFilial(input: z.input<typeof filialSchema>) {
+  return secureAction("configuracoes", filialSchema, input, async (f, { church }) => {
+    await db.congregation.create({ data: { ...(await dadosFilial(church.id, f, false)), churchId: church.id } })
+    return loadFiliais(church)
+  })
+}
+
+export async function updateFilial(id: string, input: z.input<typeof filialSchema>) {
+  return secureAction("configuracoes", filialSchema.extend({ id: idSchema }), { ...input, id }, async ({ id, ...f }, { church }) => {
+    const sede = (await loadFiliais(church))[0]
+    await db.congregation.update({ where: { id, churchId: church.id }, data: await dadosFilial(church.id, f, sede?.id === id) })
+    return loadFiliais(church)
+  })
+}
+
+/** Exclui a filial; os membros e as células dela passam para a sede. */
+export async function removeFilial(id: string) {
+  return secureAction("configuracoes", idSchema, id, async (id, { church }) => {
+    const [sede] = await loadFiliais(church)
+    if (!sede || sede.id === id) throw new ActionError("A sede não pode ser excluída.")
+    try {
+      await db.$transaction([
+        db.member.updateMany({ where: { churchId: church.id, congregationId: id }, data: { congregationId: sede.id } }),
+        db.cell.updateMany({ where: { churchId: church.id, congregationId: id }, data: { congregationId: sede.id } }),
+        db.congregation.delete({ where: { id, churchId: church.id } }),
+      ])
+    } catch (e) {
+      // Usuários com acesso só a esta filial (onDelete: Restrict): o admin decide o acesso deles antes.
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2003")
+        throw new ActionError("Há usuários com acesso só a esta filial. Mude o acesso deles em Usuários antes de excluir.")
+      throw e
+    }
+    return loadFiliais(church)
   })
 }
 
