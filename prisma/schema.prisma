@@ -33,12 +33,40 @@ model Church {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  users         ChurchUser[]
   congregations Congregation[]
   members       Member[]
   visits        Visit[]
   transactions  Transaction[]
   events        Event[]
   certificates  Certificate[]
+}
+
+enum UserRole {
+  admin
+  secretaria
+  tesouraria
+  pastor
+  lider
+}
+
+/// Usuário do sistema dentro de uma igreja. O login é do Clerk; a função (papel) fica aqui,
+/// porque papéis customizados do Clerk são pagos em produção.
+model ChurchUser {
+  id                String   @id @default(cuid())
+  churchId          String
+  church            Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  /// Preenchido no primeiro acesso; antes disso o convite está pendente.
+  clerkUserId       String?
+  clerkInvitationId String?
+  nome              String
+  email             String
+  papel             UserRole @default(lider)
+  ativo             Boolean  @default(true)
+  createdAt         DateTime @default(now())
+
+  @@unique([churchId, email])
+  @@unique([churchId, clerkUserId])
 }
 
 model Congregation {

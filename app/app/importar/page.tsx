@@ -15,9 +15,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TODAY } from "@/lib/format"
+import { canWrite } from "@/lib/permissions"
 import { approxCoords } from "@/lib/seed"
 import { useApp } from "@/lib/store"
 import type { Member } from "@/lib/types"
+import { memberSchema } from "@/lib/validations"
 
 const CAMPOS = [
   { key: "nome", label: "Nome", aliases: ["nome", "nome completo", "membro"] },
@@ -92,7 +94,8 @@ function Planilha() {
   const congregacoes = useApp((s) => s.church.congregacoes)
   const [rows, setRows] = React.useState<string[][]>([])
   const [map, setMap] = React.useState<Record<CampoKey, number>>({} as Record<CampoKey, number>)
-  const [cong, setCong] = React.useState(congregacoes[0])
+  const [cong, setCong] = React.useState(congregacoes[0] ?? "")
+  const [pending, setPending] = React.useState(false)
   const header = rows[0] ?? []
   const body = rows.slice(1).filter((r) => r[map.nome] ?? "")
 
@@ -108,11 +111,29 @@ function Planilha() {
     setMap(auto)
   }
 
-  function importar() {
+  async function importar() {
     if (map.nome == null || map.nome < 0) return toast.error("Indique qual coluna tem o nome")
     const ms = body.map((r) => buildMember((k) => (map[k] >= 0 ? r[map[k]] ?? "" : ""), cong))
-    const n = addMembers(ms)
-    toast.success(`${n} pessoas importadas`)
+
+    // Valida linha a linha: importa as válidas e informa as que ficaram de fora (linha 1 é o cabeçalho).
+    const validas: typeof ms = []
+    const erros: string[] = []
+    ms.forEach((m, i) => {
+      const r = memberSchema.safeParse(m)
+      if (r.success) validas.push(m)
+      else erros.push(`Linha ${i + 2}: ${r.error.issues[0].message}`)
+    })
+    if (validas.length === 0) return toast.error("Nenhuma linha válida", { description: erros.slice(0, 5).join(" · ") })
+
+    setPending(true)
+    const r = await addMembers(validas).finally(() => setPending(false))
+    if (!r.ok) return toast.error(r.error)
+    toast.success(`${r.data.length} pessoas importadas`)
+    if (erros.length)
+      toast.warning(`${erros.length} linha(s) ignorada(s)`, {
+        description: erros.slice(0, 5).join(" · ") + (erros.length > 5 ? " …" : ""),
+        duration: 15_000,
+      })
     router.push("/app/membros")
   }
 
@@ -176,7 +197,7 @@ function Planilha() {
           <p className="font-medium">Pré-visualização <Badge variant="secondary" className="ml-2">{body.length} pessoas</Badge></p>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setRows([])}>Trocar arquivo</Button>
-            <Button onClick={importar}><Upload /> Importar {body.length}</Button>
+            <Button onClick={importar} disabled={pending}><Upload /> {pending ? "Importando…" : `Importar ${body.length}`}</Button>
           </div>
         </div>
         <div className="max-h-96 overflow-auto">
@@ -199,7 +220,6 @@ function Planilha() {
 }
 
 function Foto() {
-  const router = useRouter()
   const addMember = useApp((s) => s.addMember)
   const congregacoes = useApp((s) => s.church.congregacoes)
   const [img, setImg] = React.useState<string>()
@@ -217,14 +237,17 @@ function Foto() {
     }, 1800)
   }
 
-  function salvar(e: React.FormEvent) {
+  async function salvar(e: React.FormEvent) {
     e.preventDefault()
     if (!campos) return
-    const m = addMember(buildMember((k) => campos[k], congregacoes[0]))
-    toast.success(`${m.nome} cadastrado(a) a partir da foto`)
+    const m = buildMember((k) => campos[k], congregacoes[0] ?? "")
+    const erro = memberSchema.safeParse(m).error?.issues[0]
+    if (erro) return toast.error(erro.message)
+    const r = await addMember(m)
+    if (!r.ok) return toast.error(r.error)
+    toast.success(`${r.data.nome} cadastrado(a) a partir da foto`)
     setImg(undefined)
     setCampos(null)
-    router.refresh()
   }
 
   return (
@@ -282,6 +305,15 @@ function Foto() {
 }
 
 export default function ImportarPage() {
+  const pode = useApp((s) => canWrite(s.me.papel, "membros"))
+  if (!pode)
+    return (
+      <>
+        <PageHeader title="Importar membros" />
+        <Card><CardContent className="py-12 text-center text-muted-foreground">Sua função não permite cadastrar membros.</CardContent></Card>
+      </>
+    )
+
   return (
     <>
       <PageHeader title="Importar membros" description="Traga a lista que você já tem: planilha ou foto das fichas de papel." />

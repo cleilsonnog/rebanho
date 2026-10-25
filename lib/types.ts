@@ -83,6 +83,8 @@ export interface AppUser {
   email: string
   papel: UserRole
   ativo: boolean
+  /** Convidado que ainda não fez o primeiro acesso. */
+  pendente: boolean
 }
 
 export interface Church {
@@ -102,4 +104,17 @@ export interface WhatsAppSettings {
   diasAntecedencia: number
   mensagemAniversario: string
   envioAutomatico: boolean
+}
+
+/** Tudo o que o painel precisa, carregado do banco no servidor para a igreja ativa. */
+export interface AppData {
+  me: AppUser
+  church: Church
+  members: Member[]
+  visits: Visit[]
+  transactions: Transaction[]
+  events: ChurchEvent[]
+  certificates: IssuedCertificate[]
+  users: AppUser[]
+  whatsapp: WhatsAppSettings
 }

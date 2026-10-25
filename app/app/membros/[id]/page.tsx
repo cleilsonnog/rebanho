@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { age, formatBRL, formatDate, whatsappLink } from "@/lib/format"
+import { canWrite } from "@/lib/permissions"
 import { useApp, useMember } from "@/lib/store"
 
 const ESTADO_CIVIL = { solteiro: "Solteiro(a)", casado: "Casado(a)", divorciado: "Divorciado(a)", viuvo: "Viúvo(a)" }
@@ -30,6 +31,7 @@ export default function MembroPage() {
   const visits = useApp((s) => s.visits)
   const transactions = useApp((s) => s.transactions)
   const certificates = useApp((s) => s.certificates)
+  const podeEditar = useApp((s) => canWrite(s.me.papel, "membros"))
 
   if (!m)
     return (
@@ -71,7 +73,7 @@ export default function MembroPage() {
               <a href={whatsappLink(m.telefone)} target="_blank" rel="noreferrer"><MessageCircle /> WhatsApp</a>
             </Button>
             <Button variant="outline" asChild><Link href={`/app/carteirinhas?membro=${m.id}`}><IdCard /> Carteirinha</Link></Button>
-            <Button asChild><Link href={`/app/membros/${m.id}/editar`}><Pencil /> Editar</Link></Button>
+            {podeEditar && <Button asChild><Link href={`/app/membros/${m.id}/editar`}><Pencil /> Editar</Link></Button>}
           </div>
         </CardContent>
       </Card>

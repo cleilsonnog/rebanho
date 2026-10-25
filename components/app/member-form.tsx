@@ -7,15 +7,18 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
+import { useFormAction } from "@/hooks/use-form-action"
 import { STATUS_LABEL, TODAY } from "@/lib/format"
 import { BAIRROS, CARGOS, MINISTERIOS, approxCoords } from "@/lib/seed"
+import { canWrite } from "@/lib/permissions"
 import { useApp } from "@/lib/store"
 import type { Member } from "@/lib/types"
+import { memberSchema } from "@/lib/validations"
 
 type Draft = Omit<Member, "id">
 
@@ -42,8 +45,10 @@ export function MemberForm({ member }: { member?: Member }) {
   const congregacoes = useApp((s) => s.church.congregacoes)
   const addMember = useApp((s) => s.addMember)
   const updateMember = useApp((s) => s.updateMember)
+  const { errors, pending, submit, invalid } = useFormAction()
+  const pode = useApp((s) => canWrite(s.me.papel, "membros"))
   const [d, setD] = React.useState<Draft>(() => {
-    if (!member) return empty(congregacoes[0])
+    if (!member) return empty(congregacoes[0] ?? "")
     const rest: Partial<Member> = { ...member }
     delete rest.id
     return rest as Draft
@@ -56,19 +61,26 @@ export function MemberForm({ member }: { member?: Member }) {
     e.preventDefault()
     const bairroMudou = !member || member.endereco.bairro !== d.endereco.bairro
     const data = bairroMudou ? { ...d, ...approxCoords(d.endereco.bairro) } : d
-    if (member) {
-      updateMember(member.id, data)
-      toast.success("Ficha atualizada")
-      router.push(`/app/membros/${member.id}`)
-    } else {
-      const created = addMember(data)
-      toast.success(`${created.nome} cadastrado(a)`)
-      router.push(`/app/membros/${created.id}`)
-    }
+    submit(
+      memberSchema,
+      data,
+      () => (member ? updateMember(member.id, data) : addMember(data)),
+      (saved) => {
+        toast.success(member ? "Ficha atualizada" : `${saved.nome} cadastrado(a)`)
+        router.push(`/app/membros/${saved.id}`)
+      }
+    )
   }
 
+  if (!pode)
+    return (
+      <Card>
+        <CardContent className="py-12 text-center text-muted-foreground">Sua função não permite cadastrar ou editar membros.</CardContent>
+      </Card>
+    )
+
   return (
-    <form onSubmit={onSubmit} className="grid gap-4 lg:grid-cols-3">
+    <form onSubmit={onSubmit} noValidate className="grid gap-4 lg:grid-cols-3">
       <div className="space-y-4 lg:col-span-2">
         <Card>
           <CardHeader>
@@ -78,11 +90,13 @@ export function MemberForm({ member }: { member?: Member }) {
             <FieldGroup className="grid gap-4 sm:grid-cols-2">
               <Field className="sm:col-span-2">
                 <FieldLabel htmlFor="nome">Nome completo</FieldLabel>
-                <Input id="nome" required value={d.nome} onChange={(e) => set("nome", e.target.value)} />
+                <Input {...invalid("nome")} id="nome" required value={d.nome} onChange={(e) => set("nome", e.target.value)} />
+                <FieldError>{errors["nome"]}</FieldError>
               </Field>
               <Field>
                 <FieldLabel htmlFor="nasc">Data de nascimento</FieldLabel>
-                <Input id="nasc" type="date" required value={d.nascimento} onChange={(e) => set("nascimento", e.target.value)} />
+                <Input {...invalid("nascimento")} id="nasc" type="date" required value={d.nascimento} onChange={(e) => set("nascimento", e.target.value)} />
+                <FieldError>{errors["nascimento"]}</FieldError>
               </Field>
               <Field>
                 <FieldLabel>Sexo</FieldLabel>
@@ -96,11 +110,13 @@ export function MemberForm({ member }: { member?: Member }) {
               </Field>
               <Field>
                 <FieldLabel htmlFor="tel">Telefone / WhatsApp</FieldLabel>
-                <Input id="tel" required inputMode="tel" placeholder="(62) 99999-9999" value={d.telefone} onChange={(e) => set("telefone", e.target.value)} />
+                <Input {...invalid("telefone")} id="tel" required inputMode="tel" placeholder="(62) 99999-9999" value={d.telefone} onChange={(e) => set("telefone", e.target.value)} />
+                <FieldError>{errors["telefone"]}</FieldError>
               </Field>
               <Field>
                 <FieldLabel htmlFor="email">E-mail</FieldLabel>
-                <Input id="email" type="email" value={d.email} onChange={(e) => set("email", e.target.value)} />
+                <Input {...invalid("email")} id="email" type="email" value={d.email} onChange={(e) => set("email", e.target.value)} />
+                <FieldError>{errors["email"]}</FieldError>
               </Field>
               <Field>
                 <FieldLabel>Estado civil</FieldLabel>
@@ -127,28 +143,34 @@ export function MemberForm({ member }: { member?: Member }) {
             <FieldGroup className="grid gap-4 sm:grid-cols-6">
               <Field className="sm:col-span-4">
                 <FieldLabel htmlFor="rua">Rua</FieldLabel>
-                <Input id="rua" value={d.endereco.rua} onChange={(e) => setEnd("rua", e.target.value)} />
+                <Input {...invalid("endereco.rua")} id="rua" value={d.endereco.rua} onChange={(e) => setEnd("rua", e.target.value)} />
+                <FieldError>{errors["endereco.rua"]}</FieldError>
               </Field>
               <Field className="sm:col-span-2">
                 <FieldLabel htmlFor="num">Número</FieldLabel>
-                <Input id="num" value={d.endereco.numero} onChange={(e) => setEnd("numero", e.target.value)} />
+                <Input {...invalid("endereco.numero")} id="num" value={d.endereco.numero} onChange={(e) => setEnd("numero", e.target.value)} />
+                <FieldError>{errors["endereco.numero"]}</FieldError>
               </Field>
               <Field className="sm:col-span-3">
                 <FieldLabel htmlFor="bairro">Bairro</FieldLabel>
-                <Input id="bairro" list="bairros" value={d.endereco.bairro} onChange={(e) => setEnd("bairro", e.target.value)} />
+                <Input {...invalid("endereco.bairro")} id="bairro" list="bairros" value={d.endereco.bairro} onChange={(e) => setEnd("bairro", e.target.value)} />
                 <datalist id="bairros">{BAIRROS.map((b) => <option key={b.nome} value={b.nome} />)}</datalist>
+                <FieldError>{errors["endereco.bairro"]}</FieldError>
               </Field>
               <Field className="sm:col-span-3">
                 <FieldLabel htmlFor="cep">CEP</FieldLabel>
-                <Input id="cep" value={d.endereco.cep} onChange={(e) => setEnd("cep", e.target.value)} />
+                <Input {...invalid("endereco.cep")} id="cep" value={d.endereco.cep} onChange={(e) => setEnd("cep", e.target.value)} />
+                <FieldError>{errors["endereco.cep"]}</FieldError>
               </Field>
               <Field className="sm:col-span-4">
                 <FieldLabel htmlFor="cidade">Cidade</FieldLabel>
-                <Input id="cidade" value={d.endereco.cidade} onChange={(e) => setEnd("cidade", e.target.value)} />
+                <Input {...invalid("endereco.cidade")} id="cidade" value={d.endereco.cidade} onChange={(e) => setEnd("cidade", e.target.value)} />
+                <FieldError>{errors["endereco.cidade"]}</FieldError>
               </Field>
               <Field className="sm:col-span-2">
                 <FieldLabel htmlFor="uf">UF</FieldLabel>
-                <Input id="uf" maxLength={2} value={d.endereco.uf} onChange={(e) => setEnd("uf", e.target.value.toUpperCase())} />
+                <Input {...invalid("endereco.uf")} id="uf" maxLength={2} value={d.endereco.uf} onChange={(e) => setEnd("uf", e.target.value.toUpperCase())} />
+                <FieldError>{errors["endereco.uf"]}</FieldError>
               </Field>
             </FieldGroup>
           </CardContent>
@@ -157,7 +179,8 @@ export function MemberForm({ member }: { member?: Member }) {
         <Card>
           <CardHeader><CardTitle>Observações</CardTitle></CardHeader>
           <CardContent>
-            <Textarea rows={4} value={d.observacoes ?? ""} onChange={(e) => set("observacoes", e.target.value)} placeholder="Informações pastorais, família, necessidades…" />
+            <Textarea {...invalid("observacoes")} rows={4} value={d.observacoes ?? ""} onChange={(e) => set("observacoes", e.target.value)} placeholder="Informações pastorais, família, necessidades…" />
+            <FieldError className="mt-2">{errors.observacoes}</FieldError>
           </CardContent>
         </Card>
       </div>
@@ -196,7 +219,8 @@ export function MemberForm({ member }: { member?: Member }) {
               </Field>
               <Field>
                 <FieldLabel htmlFor="desde">Membro desde</FieldLabel>
-                <Input id="desde" type="date" value={d.membroDesde} onChange={(e) => set("membroDesde", e.target.value)} />
+                <Input {...invalid("membroDesde")} id="desde" type="date" value={d.membroDesde} onChange={(e) => set("membroDesde", e.target.value)} />
+                <FieldError>{errors["membroDesde"]}</FieldError>
               </Field>
               <Field orientation="horizontal" className="justify-between">
                 <FieldLabel htmlFor="batizado">Batizado(a)</FieldLabel>
@@ -205,7 +229,8 @@ export function MemberForm({ member }: { member?: Member }) {
               {d.batizado && (
                 <Field>
                   <FieldLabel htmlFor="dtbat">Data do batismo</FieldLabel>
-                  <Input id="dtbat" type="date" value={d.dataBatismo ?? ""} onChange={(e) => set("dataBatismo", e.target.value)} />
+                  <Input {...invalid("dataBatismo")} id="dtbat" type="date" value={d.dataBatismo ?? ""} onChange={(e) => set("dataBatismo", e.target.value)} />
+                  <FieldError>{errors["dataBatismo"]}</FieldError>
                 </Field>
               )}
             </FieldGroup>
@@ -231,7 +256,9 @@ export function MemberForm({ member }: { member?: Member }) {
 
         <div className="flex gap-2">
           <Button type="button" variant="outline" className="flex-1" onClick={() => router.back()}>Cancelar</Button>
-          <Button type="submit" className="flex-1">{member ? "Salvar alterações" : "Cadastrar"}</Button>
+          <Button type="submit" className="flex-1" disabled={pending}>
+            {pending ? "Salvando…" : member ? "Salvar alterações" : "Cadastrar"}
+          </Button>
         </div>
       </div>
     </form>

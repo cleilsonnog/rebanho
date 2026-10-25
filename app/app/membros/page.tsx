@@ -21,6 +21,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { CARGOS } from "@/lib/seed"
 import { STATUS_LABEL, age, whatsappLink } from "@/lib/format"
+import { notify } from "@/hooks/use-form-action"
+import { canWrite } from "@/lib/permissions"
 import { useApp } from "@/lib/store"
 import type { Member, MemberStatus } from "@/lib/types"
 
@@ -40,6 +42,7 @@ export default function MembrosPage() {
   const members = useApp((s) => s.members)
   const congregacoes = useApp((s) => s.church.congregacoes)
   const removeMember = useApp((s) => s.removeMember)
+  const pode = useApp((s) => canWrite(s.me.papel, "membros"))
 
   const [q, setQ] = React.useState("")
   const [status, setStatus] = React.useState<"todos" | MemberStatus>("todos")
@@ -153,16 +156,17 @@ export default function MembrosPage() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem asChild><Link href={`/app/membros/${m.id}`}>Abrir ficha</Link></DropdownMenuItem>
-                      <DropdownMenuItem asChild><Link href={`/app/membros/${m.id}/editar`}>Editar</Link></DropdownMenuItem>
+                      {pode && <DropdownMenuItem asChild><Link href={`/app/membros/${m.id}/editar`}>Editar</Link></DropdownMenuItem>}
                       <DropdownMenuItem asChild>
                         <a href={whatsappLink(m.telefone)} target="_blank" rel="noreferrer">WhatsApp</a>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild><Link href={`/app/carteirinhas?membro=${m.id}`}>Carteirinha</Link></DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
+                        hidden={!pode}
                         variant="destructive"
                         onSelect={() => {
-                          if (confirm(`Excluir ${m.nome}? Esta ação não pode ser desfeita.`)) removeMember(m.id)
+                          if (confirm(`Excluir ${m.nome}? Esta ação não pode ser desfeita.`)) notify(removeMember(m.id), `${m.nome} excluído(a)`)
                         }}
                       >
                         Excluir

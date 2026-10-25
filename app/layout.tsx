@@ -5,7 +5,6 @@ import { ptBR } from "@clerk/localizations"
 import { shadcn } from "@clerk/ui/themes"
 
 import "./globals.css"
-import { StoreHydrator } from "@/components/store-hydrator"
 import { ThemeProvider } from "@/components/theme-provider"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { Toaster } from "@/components/ui/sonner"
@@ -47,7 +46,6 @@ export default function RootLayout({
           appearance={{ theme: shadcn }}
           taskUrls={{ "choose-organization": "/igreja" }}
         >
-          <StoreHydrator />
           <ThemeProvider defaultTheme="light">
             <TooltipProvider>
               {children}

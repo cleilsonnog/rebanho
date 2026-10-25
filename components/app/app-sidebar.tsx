@@ -45,7 +45,9 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 import { daysUntilBirthday, initials } from "@/lib/format"
+import { canRead, canWrite } from "@/lib/permissions"
 import { useApp } from "@/lib/store"
+import type { UserRole } from "@/lib/types"
 
 const NAV = [
   { label: "Visão geral", items: [{ title: "Painel", href: "/app", icon: LayoutDashboard }] },
@@ -77,11 +79,20 @@ const NAV = [
   },
 ] as const
 
+/** Esconde do menu o que a função não usa. O servidor bloqueia de qualquer forma. */
+const VISIVEL: Record<string, (papel: UserRole) => boolean> = {
+  "/app/importar": (p) => canWrite(p, "membros"),
+  "/app/financeiro": (p) => canRead(p, "financeiro"),
+  "/app/whatsapp": (p) => p === "admin",
+  "/app/configuracoes": (p) => p === "admin",
+}
+
 export function AppSidebar() {
   const pathname = usePathname()
   const { user } = useUser()
   const { organization } = useOrganization()
   const { signOut } = useClerk()
+  const papel = useApp((s) => s.me.papel)
   const nome = user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? ""
   const birthdays = useApp(
     (s) => s.members.filter((m) => m.status !== "transferido" && daysUntilBirthday(m.nascimento) <= 7).length
@@ -112,7 +123,7 @@ export function AppSidebar() {
           <SidebarGroup key={group.label}>
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
             <SidebarMenu>
-              {group.items.map((item) => (
+              {group.items.filter((item) => VISIVEL[item.href]?.(papel) ?? true).map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton asChild isActive={isActive(item.href)} tooltip={item.title}>
                     <Link href={item.href}>
@@ -148,9 +159,11 @@ export function AppSidebar() {
               <DropdownMenuContent side="top" align="start" className="w-56">
                 <DropdownMenuLabel>Minha conta</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/app/configuracoes"><Settings /> Configurações</Link>
-                </DropdownMenuItem>
+                {papel === "admin" && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/app/configuracoes"><Settings /> Configurações</Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem asChild>
                   <Link href="/igreja"><ArrowLeftRight /> Trocar de igreja</Link>
                 </DropdownMenuItem>

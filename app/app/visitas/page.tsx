@@ -13,13 +13,16 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { notify, useFormAction } from "@/hooks/use-form-action"
 import { TODAY, formatDate, parseISO } from "@/lib/format"
+import { canWrite } from "@/lib/permissions"
 import { MOTIVOS_VISITA } from "@/lib/seed"
 import { useApp } from "@/lib/store"
+import { visitSchema } from "@/lib/validations"
 
 const RESPONSAVEIS = ["Pr. Samuel Rocha", "Pra. Débora Rocha", "Pb. André Lima", "Ev. Paulo Mendes"]
 const hoje = TODAY.toISOString().slice(0, 10)
@@ -29,21 +32,24 @@ function NovaVisitaDialog({ open, onOpenChange, membroInicial }: { open: boolean
   const [membroId, setMembroId] = React.useState(membroInicial)
   const [motivo, setMotivo] = React.useState<string>(MOTIVOS_VISITA[0])
   const [responsavel, setResponsavel] = React.useState(RESPONSAVEIS[0])
+  const { errors, pending, submit, invalid } = useFormAction()
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!membroId) return toast.error("Escolha quem foi visitado")
     const f = new FormData(e.currentTarget)
-    addVisit({
+    const visita = {
       membroId,
       motivo,
       responsavel,
       data: String(f.get("data")),
       notas: String(f.get("notas")),
-      proximaVisita: String(f.get("proxima")) || undefined,
+      proximaVisita: String(f.get("proxima")),
+    }
+    submit(visitSchema, visita, () => addVisit(visita), () => {
+      toast.success("Visita registrada no histórico")
+      onOpenChange(false)
     })
-    toast.success("Visita registrada no histórico")
-    onOpenChange(false)
   }
 
   return (
@@ -53,7 +59,7 @@ function NovaVisitaDialog({ open, onOpenChange, membroInicial }: { open: boolean
           <DialogTitle>Registrar visita</DialogTitle>
           <DialogDescription>A visita entra no histórico da pessoa.</DialogDescription>
         </DialogHeader>
-        <form onSubmit={onSubmit}>
+        <form onSubmit={onSubmit} noValidate>
           <FieldGroup>
             <Field>
               <FieldLabel>Pessoa visitada</FieldLabel>
@@ -62,7 +68,8 @@ function NovaVisitaDialog({ open, onOpenChange, membroInicial }: { open: boolean
             <div className="grid gap-4 sm:grid-cols-2">
               <Field>
                 <FieldLabel htmlFor="data">Data</FieldLabel>
-                <Input id="data" name="data" type="date" defaultValue={hoje} required />
+                <Input {...invalid("data")} id="data" name="data" type="date" defaultValue={hoje} max={hoje} required />
+                <FieldError>{errors.data}</FieldError>
               </Field>
               <Field>
                 <FieldLabel>Motivo</FieldLabel>
@@ -81,16 +88,18 @@ function NovaVisitaDialog({ open, onOpenChange, membroInicial }: { open: boolean
             </Field>
             <Field>
               <FieldLabel htmlFor="notas">Anotações</FieldLabel>
-              <Textarea id="notas" name="notas" rows={4} required placeholder="O que foi conversado, pedidos de oração, combinados…" />
+              <Textarea {...invalid("notas")} id="notas" name="notas" rows={4} required placeholder="O que foi conversado, pedidos de oração, combinados…" />
+              <FieldError>{errors.notas}</FieldError>
             </Field>
             <Field>
               <FieldLabel htmlFor="proxima">Próxima visita (opcional)</FieldLabel>
-              <Input id="proxima" name="proxima" type="date" min={hoje} />
+              <Input {...invalid("proximaVisita")} id="proxima" name="proxima" type="date" min={hoje} />
+              <FieldError>{errors.proximaVisita}</FieldError>
             </Field>
           </FieldGroup>
           <DialogFooter className="mt-6">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit">Salvar visita</Button>
+            <Button type="submit" disabled={pending}>{pending ? "Salvando…" : "Salvar visita"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -105,6 +114,7 @@ function VisitasContent() {
   const visits = useApp((s) => s.visits)
   const members = useApp((s) => s.members)
   const removeVisit = useApp((s) => s.removeVisit)
+  const pode = useApp((s) => canWrite(s.me.papel, "visitas"))
   const byId = React.useMemo(() => new Map(members.map((m) => [m.id, m])), [members])
 
   const mes = hoje.slice(0, 7)
@@ -117,7 +127,7 @@ function VisitasContent() {
   return (
     <>
       <PageHeader title="Visitas pastorais" description="Cada visita fica no histórico, para quem for depois chegar com contexto.">
-        <Button onClick={() => setOpen(true)}><Plus /> Registrar visita</Button>
+        {pode && <Button onClick={() => setOpen(true)}><Plus /> Registrar visita</Button>}
       </PageHeader>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -157,15 +167,17 @@ function VisitasContent() {
                         <p className="mt-2 flex items-center gap-1 text-xs text-primary"><CalendarClock className="size-3.5" /> Próxima visita {formatDate(v.proximaVisita)}</p>
                       )}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      className="opacity-0 group-hover:opacity-100"
-                      aria-label="Excluir visita"
-                      onClick={() => confirm("Excluir esta visita?") && removeVisit(v.id)}
-                    >
-                      <Trash2 />
-                    </Button>
+                    {pode && (
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="opacity-0 group-hover:opacity-100"
+                        aria-label="Excluir visita"
+                        onClick={() => confirm("Excluir esta visita?") && notify(removeVisit(v.id), "Visita excluída")}
+                      >
+                        <Trash2 />
+                      </Button>
+                    )}
                   </div>
                 </div>
               )
@@ -190,7 +202,7 @@ function VisitasContent() {
         </Card>
       </div>
 
-      <NovaVisitaDialog key={String(open)} open={open} onOpenChange={setOpen} membroInicial={params.get("membro") ?? undefined} />
+      <NovaVisitaDialog key={String(open)} open={open && pode} onOpenChange={setOpen} membroInicial={params.get("membro") ?? undefined} />
     </>
   )
 }

@@ -26,6 +26,8 @@ const between = (min: number, max: number) => min + rand() * (max - min)
 const int = (min: number, max: number) => Math.floor(between(min, max + 1))
 const pad = (n: number) => String(n).padStart(2, "0")
 const isoDate = (y: number, m: number, d: number) => `${y}-${pad(m)}-${pad(d)}`
+/** Limita à data de "hoje" da demonstração sem mudar a sequência do gerador aleatório. */
+const ateHoje = (iso: string) => (iso > "2026-10-24" ? "2026-10-24" : iso)
 
 const nomesM = [
   "João", "Pedro", "Lucas", "Mateus", "Gabriel", "Rafael", "Daniel", "Samuel", "Davi", "Tiago",
@@ -108,7 +110,7 @@ function genMembers(n: number): Member[] {
       status,
       batizado,
       dataBatismo: batizado ? isoDate(Math.max(anoMembro, TODAY.getFullYear() - idade + 12), int(1, 12), int(1, 28)) : undefined,
-      membroDesde: status === "visitante" ? isoDate(2026, int(8, 10), int(1, 24)) : isoDate(anoMembro, int(1, 12), int(1, 28)),
+      membroDesde: ateHoje(status === "visitante" ? isoDate(2026, int(8, 10), int(1, 24)) : isoDate(anoMembro, int(1, 12), int(1, 28))),
     })
   }
   return members
@@ -250,7 +252,7 @@ export const seedCertificates: IssuedCertificate[] = seedMembers
 export const seedChurch: Church = {
   nome: "Igreja Comunidade Monte Hermom",
   sigla: "MH",
-  cnpj: "12.345.678/0001-90",
+  cnpj: "12.345.678/0001-95",
   pastor: "Pr. Samuel Rocha",
   telefone: "(62) 3333-4455",
   email: "secretaria@montehermom.org",
@@ -259,11 +261,11 @@ export const seedChurch: Church = {
 }
 
 export const seedUsers: AppUser[] = [
-  { id: "u1", nome: "Samuel Rocha", email: "pastor@montehermom.org", papel: "admin", ativo: true },
-  { id: "u2", nome: "Lídia Carvalho", email: "secretaria@montehermom.org", papel: "secretaria", ativo: true },
-  { id: "u3", nome: "Marcos Teixeira", email: "tesouraria@montehermom.org", papel: "tesouraria", ativo: true },
-  { id: "u4", nome: "Débora Rocha", email: "debora@montehermom.org", papel: "pastor", ativo: true },
-  { id: "u5", nome: "Caleb Nunes", email: "jovens@montehermom.org", papel: "lider", ativo: false },
+  { id: "u1", nome: "Samuel Rocha", email: "pastor@montehermom.org", papel: "admin", ativo: true, pendente: false },
+  { id: "u2", nome: "Lídia Carvalho", email: "secretaria@montehermom.org", papel: "secretaria", ativo: true, pendente: false },
+  { id: "u3", nome: "Marcos Teixeira", email: "tesouraria@montehermom.org", papel: "tesouraria", ativo: true, pendente: false },
+  { id: "u4", nome: "Débora Rocha", email: "debora@montehermom.org", papel: "pastor", ativo: true, pendente: false },
+  { id: "u5", nome: "Caleb Nunes", email: "jovens@montehermom.org", papel: "lider", ativo: false, pendente: false },
 ]
 
 export const seedWhatsApp: WhatsAppSettings = {

@@ -18,7 +18,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { TODAY, formatDate, formatDateLong } from "@/lib/format"
 import { TIPOS_CERTIFICADO } from "@/lib/seed"
+import { canWrite } from "@/lib/permissions"
 import { useApp } from "@/lib/store"
+import { certificatesSchema } from "@/lib/validations"
 import type { CertificateStyle, Church, Member } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -78,6 +80,8 @@ function CertificadosContent() {
   const church = useApp((s) => s.church)
   const certificates = useApp((s) => s.certificates)
   const addCertificates = useApp((s) => s.addCertificates)
+  const pode = useApp((s) => canWrite(s.me.papel, "certificados"))
+  const [pending, setPending] = React.useState(false)
   const nomes = React.useMemo(() => new Map(members.map((m) => [m.id, m.nome])), [members])
 
   const [tipo, setTipo] = React.useState<string>(TIPOS_CERTIFICADO[0])
@@ -93,16 +97,21 @@ function CertificadosContent() {
   const escolhidos = members.filter((m) => selected.includes(m.id))
   const preview = escolhidos[0] ?? lista[0]
 
-  function emitir() {
-    addCertificates(escolhidos.map((m) => ({ membroId: m.id, tipo, estilo, emitidoEm: data, detalhe })))
-    toast.success(`${escolhidos.length} certificado(s) registrados`)
+  async function emitir() {
+    const lote = { membroIds: escolhidos.map((m) => m.id), tipo, estilo, emitidoEm: data, detalhe }
+    const erro = certificatesSchema.safeParse(lote).error?.issues[0]
+    if (erro) return toast.error(erro.message)
+    setPending(true)
+    const r = await addCertificates(lote).finally(() => setPending(false))
+    if (!r.ok) return toast.error(r.error)
+    toast.success(`${r.data.length} certificado(s) registrados`)
     setTimeout(() => window.print(), 100)
   }
 
   return (
     <>
       <PageHeader title="Certificados" description="Batismo, cursos, congressos e mais, em três estilos, um a um ou em lote.">
-        <Button disabled={escolhidos.length === 0} onClick={emitir}>
+        <Button disabled={escolhidos.length === 0 || pending || !pode} onClick={emitir}>
           <Printer /> Emitir {escolhidos.length || ""} e imprimir / PDF
         </Button>
       </PageHeader>

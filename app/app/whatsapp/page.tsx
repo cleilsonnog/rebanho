@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
+import { notify } from "@/hooks/use-form-action"
 import { useApp } from "@/lib/store"
 
 export default function WhatsAppPage() {
@@ -22,18 +23,26 @@ export default function WhatsAppPage() {
   const update = useApp((s) => s.updateWhatsApp)
   const [conectando, setConectando] = React.useState(false)
   const [mensagem, setMensagem] = React.useState(whatsapp.mensagemAniversario)
+  const papel = useApp((s) => s.me.papel)
 
   function conectar() {
     setConectando(true)
     // Demonstração: simula a leitura do QR Code. Em produção, use um provedor de API do WhatsApp.
     setTimeout(() => {
-      update({ conectado: true, numero: church.telefone })
-      setConectando(false)
-      toast.success("WhatsApp conectado")
+      notify(update({ conectado: true, numero: church.telefone }), "WhatsApp conectado").finally(() => setConectando(false))
     }, 2500)
   }
 
   const exemplo = mensagem.replace("{nome}", "Rebeca").replace("{igreja}", church.nome)
+
+
+  if (papel !== "admin")
+    return (
+      <>
+        <PageHeader title="WhatsApp" />
+        <Card><CardContent className="py-12 text-center text-muted-foreground">Só o administrador da igreja acessa esta página.</CardContent></Card>
+      </>
+    )
 
   return (
     <>
@@ -54,7 +63,7 @@ export default function WhatsAppPage() {
             {whatsapp.conectado ? (
               <>
                 <CheckCircle2 className="size-24 text-success" />
-                <Button variant="outline" onClick={() => update({ conectado: false, numero: undefined })}><Unplug /> Desconectar</Button>
+                <Button variant="outline" onClick={() => notify(update({ conectado: false, numero: "" }), "WhatsApp desconectado")}><Unplug /> Desconectar</Button>
               </>
             ) : (
               <>
@@ -83,11 +92,11 @@ export default function WhatsAppPage() {
                   <FieldLabel htmlFor="auto">Envio automático</FieldLabel>
                   <FieldDescription>Envia às 8h do dia do aniversário.</FieldDescription>
                 </div>
-                <Switch id="auto" checked={whatsapp.envioAutomatico} onCheckedChange={(v) => update({ envioAutomatico: v })} />
+                <Switch id="auto" checked={whatsapp.envioAutomatico} onCheckedChange={(v) => notify(update({ envioAutomatico: v }))} />
               </Field>
               <Field>
                 <FieldLabel>Avisar a liderança com antecedência de</FieldLabel>
-                <Select value={String(whatsapp.diasAntecedencia)} onValueChange={(v) => update({ diasAntecedencia: Number(v) })}>
+                <Select value={String(whatsapp.diasAntecedencia)} onValueChange={(v) => notify(update({ diasAntecedencia: Number(v) }))}>
                   <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {[1, 2, 3, 7].map((d) => <SelectItem key={d} value={String(d)}>{d} dia(s)</SelectItem>)}
@@ -102,7 +111,7 @@ export default function WhatsAppPage() {
                 <p className="mb-1 flex items-center gap-1 text-xs font-medium text-[#1c7d32] dark:text-[#7fd68d]"><MessageCircle className="size-3.5" /> Pré-visualização</p>
                 {exemplo}
               </div>
-              <Button onClick={() => { update({ mensagemAniversario: mensagem }); toast.success("Mensagem salva") }}>Salvar mensagem</Button>
+              <Button onClick={() => notify(update({ mensagemAniversario: mensagem }), "Mensagem salva")}>Salvar mensagem</Button>
             </FieldGroup>
           </CardContent>
         </Card>

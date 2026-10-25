@@ -19,16 +19,19 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { notify, useFormAction } from "@/hooks/use-form-action"
 import { MONTHS, MONTHS_LONG, TODAY, formatBRL, formatAxisBRL, formatDate } from "@/lib/format"
+import { canRead, canWrite } from "@/lib/permissions"
 import { CATEGORIAS_ENTRADA, CATEGORIAS_SAIDA } from "@/lib/seed"
 import { useApp } from "@/lib/store"
 import type { Transaction, TransactionType } from "@/lib/types"
+import { transactionSchema } from "@/lib/validations"
 
 const fluxoConfig = {
   entradas: { label: "Entradas", color: "var(--chart-1)" },
@@ -41,37 +44,41 @@ const FORMA_LABEL = { pix: "Pix", dinheiro: "Dinheiro", cartao: "Cartão", trans
 
 const META_CAMPANHA = 30000
 
+/** Aceita "1.234,56", "1234,56" e "1234.56". */
+const parseValor = (v: string) => Number(v.includes(",") ? v.replace(/\./g, "").replace(",", ".") : v)
+
 function NovoLancamento({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const add = useApp((s) => s.addTransaction)
   const [tipo, setTipo] = React.useState<TransactionType>("entrada")
   const [categoria, setCategoria] = React.useState<string>("Dízimo")
   const [forma, setForma] = React.useState<Transaction["formaPagamento"]>("pix")
   const [membroId, setMembroId] = React.useState<string>()
+  const { errors, pending, submit, invalid } = useFormAction()
   const categorias = tipo === "entrada" ? CATEGORIAS_ENTRADA : CATEGORIAS_SAIDA
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const f = new FormData(e.currentTarget)
-    const valor = Number(String(f.get("valor")).replace(",", "."))
-    if (!valor || valor <= 0) return toast.error("Informe um valor válido")
-    add({
+    const lancamento = {
       tipo,
       categoria,
-      valor,
+      valor: parseValor(String(f.get("valor")).trim()),
       data: String(f.get("data")),
-      descricao: String(f.get("descricao")) || categoria,
+      descricao: String(f.get("descricao")).trim() || categoria,
       formaPagamento: forma,
       membroId: tipo === "entrada" && categoria === "Dízimo" ? membroId : undefined,
+    }
+    submit(transactionSchema, lancamento, () => add(lancamento), () => {
+      toast.success("Lançamento registrado")
+      onOpenChange(false)
     })
-    toast.success("Lançamento registrado")
-    onOpenChange(false)
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader><DialogTitle>Novo lançamento</DialogTitle></DialogHeader>
-        <form onSubmit={onSubmit}>
+        <form onSubmit={onSubmit} noValidate>
           <FieldGroup>
             <Tabs
               value={tipo}
@@ -95,11 +102,13 @@ function NovoLancamento({ open, onOpenChange }: { open: boolean; onOpenChange: (
               </Field>
               <Field>
                 <FieldLabel htmlFor="valor">Valor (R$)</FieldLabel>
-                <Input id="valor" name="valor" inputMode="decimal" placeholder="0,00" required />
+                <Input {...invalid("valor")} id="valor" name="valor" inputMode="decimal" placeholder="0,00" required />
+                <FieldError>{errors.valor}</FieldError>
               </Field>
               <Field>
                 <FieldLabel htmlFor="data">Data</FieldLabel>
-                <Input id="data" name="data" type="date" defaultValue={TODAY.toISOString().slice(0, 10)} required />
+                <Input {...invalid("data")} id="data" name="data" type="date" defaultValue={TODAY.toISOString().slice(0, 10)} required />
+                <FieldError>{errors.data}</FieldError>
               </Field>
               <Field>
                 <FieldLabel>Forma</FieldLabel>
@@ -117,12 +126,13 @@ function NovoLancamento({ open, onOpenChange }: { open: boolean; onOpenChange: (
             )}
             <Field>
               <FieldLabel htmlFor="descricao">Descrição</FieldLabel>
-              <Input id="descricao" name="descricao" placeholder="Ex.: Oferta do culto de domingo" />
+              <Input {...invalid("descricao")} id="descricao" name="descricao" placeholder="Ex.: Oferta do culto de domingo" />
+              <FieldError>{errors.descricao}</FieldError>
             </Field>
           </FieldGroup>
           <DialogFooter className="mt-6">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit">Salvar</Button>
+            <Button type="submit" disabled={pending}>{pending ? "Salvando…" : "Salvar"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -134,6 +144,8 @@ export default function FinanceiroPage() {
   const transactions = useApp((s) => s.transactions)
   const members = useApp((s) => s.members)
   const remove = useApp((s) => s.removeTransaction)
+  const papel = useApp((s) => s.me.papel)
+  const pode = canWrite(papel, "financeiro")
   const [open, setOpen] = React.useState(false)
   const [mes, setMes] = React.useState(String(TODAY.getMonth() + 1))
   const [filtroTipo, setFiltroTipo] = React.useState<"todos" | TransactionType>("todos")
@@ -165,6 +177,14 @@ export default function FinanceiroPage() {
   const catSaida = porCategoria("saida")
   const campanha = transactions.filter((t) => t.categoria === "Campanha" && t.data.startsWith(`${ano}`)).reduce((a, t) => a + t.valor, 0)
   const lista = periodo.filter((t) => filtroTipo === "todos" || t.tipo === filtroTipo)
+
+  if (!canRead(papel, "financeiro"))
+    return (
+      <>
+        <PageHeader title="Financeiro" />
+        <Card><CardContent className="py-12 text-center text-muted-foreground">Sua função não tem acesso ao financeiro.</CardContent></Card>
+      </>
+    )
 
   return (
     <>
@@ -297,7 +317,7 @@ export default function FinanceiroPage() {
                     {t.tipo === "entrada" ? "+" : "−"} {formatBRL(t.valor)}
                   </TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="icon-sm" className="opacity-0 group-hover:opacity-100" aria-label="Excluir" onClick={() => confirm("Excluir lançamento?") && remove(t.id)}>
+                    <Button variant="ghost" size="icon-sm" className="opacity-0 group-hover:opacity-100" aria-label="Excluir" hidden={!pode} onClick={() => confirm("Excluir lançamento?") && notify(remove(t.id), "Lançamento excluído")}>
                       <Trash2 />
                     </Button>
                   </TableCell>
@@ -308,7 +328,7 @@ export default function FinanceiroPage() {
         </div>
       </Card>
 
-      <NovoLancamento key={String(open)} open={open} onOpenChange={setOpen} />
+      <NovoLancamento key={String(open)} open={open && pode} onOpenChange={setOpen} />
     </>
   )
 }

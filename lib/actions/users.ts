@@ -1,0 +1,72 @@
+"use server"
+
+import type { z } from "zod"
+import { headers } from "next/headers"
+import { clerkClient } from "@clerk/nextjs/server"
+
+import { secureAction } from "../action"
+import { ActionError } from "../church"
+import { db } from "../db"
+import { toUser } from "../data"
+import { idSchema, inviteSchema, updateUserSchema } from "../validations"
+
+// Gestão de usuários é só do admin (área `null` no secureAction).
+
+export async function inviteUser(input: z.input<typeof inviteSchema>) {
+  return secureAction(null, inviteSchema, input, async ({ nome, email, papel }, { church, user }) => {
+    if (!church.clerkOrgId) throw new ActionError("Igreja sem organização no Clerk.")
+    const row = await db.churchUser.create({ data: { churchId: church.id, nome, email: email.toLowerCase(), papel } })
+
+    // O link do e-mail volta para o login do Rebanho (o <SignIn /> trata o convite), e não para a página padrão do Clerk.
+    const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_APP_URL
+
+    try {
+      // No Clerk todos são membros comuns; a função de verdade fica no banco (ChurchUser.papel).
+      const convite = await (await clerkClient()).organizations.createOrganizationInvitation({
+        organizationId: church.clerkOrgId,
+        inviterUserId: user.clerkUserId ?? undefined,
+        emailAddress: email,
+        role: "org:member",
+        redirectUrl: origin ? `${origin}/entrar` : undefined,
+      })
+      return toUser(await db.churchUser.update({ where: { id: row.id }, data: { clerkInvitationId: convite.id } }))
+    } catch (e) {
+      await db.churchUser.delete({ where: { id: row.id } })
+      console.error("[inviteUser] Clerk", e)
+      throw new ActionError("Não foi possível enviar o convite. Confira se a pessoa já não faz parte da igreja.")
+    }
+  })
+}
+
+export async function updateUser(id: string, input: z.input<typeof updateUserSchema>) {
+  const schema = updateUserSchema.extend({ id: idSchema })
+  return secureAction(null, schema, { ...input, id }, async ({ id, ...data }, { church, user }) => {
+    // Impede o admin de se rebaixar ou se desativar e deixar a igreja sem administrador.
+    if (id === user.id) throw new ActionError("Você não pode alterar o seu próprio acesso.")
+    return toUser(await db.churchUser.update({ where: { id, churchId: church.id }, data }))
+  })
+}
+
+export async function removeUser(id: string) {
+  return secureAction(null, idSchema, id, async (id, { church, user }) => {
+    if (id === user.id) throw new ActionError("Você não pode remover a si mesmo.")
+    const alvo = await db.churchUser.findUniqueOrThrow({ where: { id, churchId: church.id } })
+
+    if (church.clerkOrgId) {
+      const clerk = await clerkClient()
+      const organizationId = church.clerkOrgId
+      // Tira o acesso no Clerk também. Se já não existir lá, segue a remoção local.
+      await Promise.resolve(
+        alvo.clerkUserId
+          ? clerk.organizations.deleteOrganizationMembership({ organizationId, userId: alvo.clerkUserId })
+          : alvo.clerkInvitationId &&
+              clerk.organizations.revokeOrganizationInvitation({
+                organizationId,
+                invitationId: alvo.clerkInvitationId,
+                requestingUserId: user.clerkUserId ?? undefined,
+              })
+      ).catch((e) => console.error("[removeUser] Clerk", e))
+    }
+    await db.churchUser.delete({ where: { id: alvo.id } })
+  })
+}

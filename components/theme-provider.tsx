@@ -47,7 +47,8 @@ function ThemeHotkey() {
         return
       }
 
-      if (event.key.toLowerCase() !== "d") {
+      // O preenchimento automático do navegador dispara keydown sem `key`.
+      if (event.key?.toLowerCase() !== "d") {
         return
       }
 

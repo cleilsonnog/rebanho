@@ -4,7 +4,7 @@ SaaS de gestão de membros para igrejas: landing page e painel com membros, visi
 aniversariantes, mapa, carteirinhas, certificados, financeiro, agenda e WhatsApp.
 
 **Stack:** Next.js 16 (App Router, Turbopack), React 19, Tailwind CSS v4, shadcn/ui (Radix),
-Clerk (login e organizações), Prisma 7 + PostgreSQL no Neon, Recharts, Leaflet e Zustand.
+Clerk (login e organizações), Prisma 7 + PostgreSQL no Neon, Zod, Recharts, Leaflet e Zustand.
 
 ## Como rodar
 
@@ -52,20 +52,44 @@ uma organização, e os usuários dela (pastor, secretaria, tesouraria) são mem
 | `proxy.ts` | Middleware do Clerk (a proteção fica em cada layout e Server Action) |
 | `prisma/` | Schema, migrations e seed do banco |
 | `lib/db.ts` | Prisma Client com o adapter do Neon |
-| `lib/church.ts` | Liga a organização do Clerk à igreja no banco |
-| `lib/store.ts` | Store Zustand com os dados do painel (ainda em `localStorage`) |
-| `lib/types.ts`, `lib/seed.ts` | Tipos e dados de exemplo usados pela store |
+| `lib/church.ts` | Sessão: liga a organização do Clerk à igreja e o login ao usuário da igreja (com a função) |
+| `lib/validations.ts` | Esquemas Zod de todos os formulários (usados no navegador e no servidor) |
+| `lib/permissions.ts` | O que cada função pode ver e alterar |
+| `lib/action.ts` | `secureAction`: sessão → permissão → Zod, em toda Server Action |
+| `lib/actions/` | Server Actions por área (membros, visitas, financeiro, agenda, certificados, igreja, usuários) |
+| `lib/data.ts` | Carrega os dados da igreja ativa e converte do banco para os tipos das telas |
+| `lib/store.ts` | Store Zustand por requisição: cache dos dados no navegador, alterado só via Server Actions |
+| `lib/seed.ts`, `lib/demo.ts` | Dados de exemplo e a função que os grava numa igreja |
 
-## Situação atual
+## Segurança
 
-Login, igrejas (organizações) e banco estão ligados. **As telas do painel ainda leem e gravam na
-store local (`localStorage`)**: toda igreja vê os mesmos dados de exemplo até a próxima etapa.
+Toda gravação passa por uma Server Action que usa `secureAction` ([lib/action.ts](lib/action.ts)):
+
+1. **Sessão**: usuário logado no Clerk com uma igreja ativa; usuário desativado é bloqueado.
+2. **Permissão**: a função do usuário (`ChurchUser.papel`) precisa poder alterar a área.
+3. **Validação**: a entrada passa pelo esquema Zod. Campos extras são descartados.
+4. **Isolamento**: toda consulta filtra por `churchId` da sessão; referências a membros são conferidas.
+
+Os mesmos esquemas validam no navegador para mostrar o erro no campo, mas a validação que vale é a do servidor.
+Dados que a função não pode ver (ex.: financeiro para a secretaria) não são enviados ao navegador.
+
+| Função | Pode alterar |
+| --- | --- |
+| Administrador | Tudo, inclusive usuários, dados da igreja e WhatsApp |
+| Secretaria | Membros, visitas, certificados e agenda |
+| Pastor(a) | Membros, visitas e agenda |
+| Tesouraria | Financeiro (é a única, além do admin, que vê o financeiro) |
+| Líder de ministério | Agenda |
+
+A função fica no banco, e não nos papéis do Clerk, porque papéis customizados do Clerk são pagos em produção.
+Quem cria a igreja vira administrador; convidados entram com a função escolhida no convite.
+
+Uma igreja nova começa vazia. Para testar, use **Configurações › Dados › Carregar dados de exemplo**.
 
 ## Próximos passos
 
-1. Trocar a store por Server Actions lendo e gravando no banco, com permissões por papel.
-2. Geocodificação dos endereços (BrasilAPI, com Nominatim de reserva).
-3. Importação de fichas por foto com a API da Claude.
-4. WhatsApp via Evolution API.
+1. Geocodificação dos endereços (BrasilAPI, com Nominatim de reserva).
+2. Importação de fichas por foto com a API da Claude.
+3. WhatsApp via Evolution API.
 
 Os detalhes e as decisões estão em [docs/plano.md](docs/plano.md).
