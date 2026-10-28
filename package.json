@@ -14,7 +14,9 @@
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate",
-    "db:backup": "tsx --conditions=react-server scripts/backup.ts"
+    "db:backup": "tsx --conditions=react-server scripts/backup.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@clerk/localizations": "^4.24.1",
@@ -58,6 +60,7 @@
     "prisma": "7.10.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.12"
   }
 }

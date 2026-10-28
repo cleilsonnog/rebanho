@@ -14,7 +14,7 @@ async function main() {
   // Recria a igreja de demonstração do zero (o cascade apaga os dados dela).
   await db.church.deleteMany({ where: { id: DEMO_ID } })
 
-  const { endereco, congregacoes: _c, ...church } = seedChurch
+  const { endereco, congregacoes: _c, filiais: _f, logoUrl: _l, ...church } = seedChurch
   await db.church.create({
     data: {
       id: DEMO_ID,

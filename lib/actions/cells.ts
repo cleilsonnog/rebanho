@@ -33,12 +33,12 @@ async function minhaCelula({ church, user }: Session, id: string) {
   return cell
 }
 
-/** Filial da célula pelo nome (vazio = sede). Quem é de uma filial só grava células nela. */
+/** Filial da célula pelo nome; vazio = a filial do usuário, ou a sede. Quem é de uma filial só grava células nela. */
 async function filialDaCelula({ church, user }: Session, nome: string) {
   const filiais = await loadFiliais(church)
-  const escolhida = nome ? filiais.find((f) => f.nome === nome) : filiais[0]
-  if (!escolhida) throw new ActionError(`A filial "${nome}" não existe.`)
   const minha = filialDe(user)
+  const escolhida = nome ? filiais.find((f) => f.nome === nome) : filiais.find((f) => f.id === minha) ?? filiais[0]
+  if (!escolhida) throw new ActionError(`A filial "${nome}" não existe.`)
   if (minha && escolhida.id !== minha) throw new ActionError("Você só pode cadastrar células na sua filial.")
   return escolhida.id
 }
