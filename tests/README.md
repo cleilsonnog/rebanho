@@ -8,6 +8,7 @@ chamam, com o login simulado para cada função:
 - `permissoes.test.ts`: o que cada função pode gravar, e a validação no servidor.
 - `filiais.test.ts`: secretaria ou pastor de filial só veem e alteram a filial deles.
 - `rotas.test.ts`: a rota do backup exige a senha; o limite de pedidos funciona.
+- `cabecalhos.test.ts`: os cabeçalhos de segurança (CSP, moldura, câmera) continuam em todas as páginas.
 
 Rode antes de cada commit que mexa em `lib/`, nas ações ou nas permissões. Leva uns 30 segundos.
 
