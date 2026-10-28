@@ -41,7 +41,7 @@ const recursos = [
   { icon: KeyRound, title: "Níveis de acesso", text: "Cada função e cada filial vê só o que precisa." },
   { icon: CalendarDays, title: "Agenda da igreja", text: "Cultos, reuniões e escalas em um só lugar." },
   { icon: Smartphone, title: "100% online", text: "Funciona no computador e no celular." },
-  { icon: CloudUpload, title: "Backup diário", text: "Seus dados copiados automaticamente todos os dias." },
+  { icon: CloudUpload, title: "Backup semanal", text: "Uma cópia de tudo toda semana, guardada por um mês." },
 ]
 
 const depoimentos = [
@@ -62,7 +62,7 @@ const planoItens = [
   "Módulo financeiro completo",
   "Agenda e eventos",
   "Usuários com níveis de acesso",
-  "Backup diário e suporte prioritário",
+  "Backup semanal e suporte prioritário",
 ]
 
 const faq = [
@@ -77,7 +77,7 @@ const faq = [
   ["Minha igreja tem filiais. Como fica?", "Tudo numa conta só. Cada filial tem endereço, dirigente e pino no mapa, e membros e células são filtrados por filial. A secretaria ou o pastor de uma filial pode ter acesso só a ela, enquanto a sede vê tudo."],
   ["Dá para acompanhar as células?", "Sim. Cada célula tem líderes, colíderes, anfitrião e membros, e fica no mapa na casa do anfitrião. O pastor ou a secretaria publica o estudo da semana, e o líder marca a presença, os visitantes e as observações de cada reunião. O líder só vê a própria célula e pode imprimir o estudo ou salvá-lo em PDF."],
   ["O que o mapa de membros mostra?", "Mostra a sede, as filiais, as casas das células e os membros agrupados por região. Para proteger as famílias, cada membro fica numa posição aproximada do bairro, e o mapa só aparece para administrador, secretaria e pastor."],
-  ["Meus dados ficam seguros?", "Sim. Usamos conexão criptografada, backup diário e controle de acesso por função. Dados de fé são sensíveis pela LGPD e são tratados com esse cuidado."],
+  ["Meus dados ficam seguros?", "Sim. Usamos conexão criptografada, backup semanal e controle de acesso por função. Dados de fé são sensíveis pela LGPD e são tratados com esse cuidado."],
 ]
 
 export default function LandingPage() {
@@ -284,7 +284,7 @@ export default function LandingPage() {
           {[
             { icon: ShieldCheck, t: "14 dias grátis", d: "Sem cartão de crédito." },
             { icon: Lock, t: "Sem fidelidade", d: "Cancele sem multa." },
-            { icon: CloudUpload, t: "Backup diário", d: "Automático, todos os dias." },
+            { icon: CloudUpload, t: "Backup semanal", d: "Automático, guardado por um mês." },
           ].map((g) => (
             <div key={g.t} className="flex items-start gap-3 rounded-xl border p-4">
               <g.icon className="size-5 shrink-0 text-primary" />

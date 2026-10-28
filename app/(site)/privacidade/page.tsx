@@ -73,6 +73,10 @@ export default function PrivacidadePage() {
             reúne é marcada no ponto exato.
           </li>
           <li>Validação no servidor de todas as informações enviadas pelos formulários.</li>
+          <li>
+            Cópia de segurança semanal de todo o banco de dados, feita na própria Neon, no Brasil. Guardamos as quatro
+            últimas (cerca de um mês); as mais antigas são apagadas automaticamente.
+          </li>
         </ul>
       </Secao>
 
