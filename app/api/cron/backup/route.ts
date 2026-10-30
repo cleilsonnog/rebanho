@@ -1,9 +1,11 @@
 import { timingSafeEqual } from "node:crypto"
 
+import { limparHistorico } from "@/lib/audit"
 import { backupSemanal } from "@/lib/backup"
 
 // Chamada pela Vercel Cron todo domingo (vercel.json). A Vercel manda `Authorization: Bearer <CRON_SECRET>`;
 // sem esse segredo a rota não faz nada, então ninguém de fora consegue disparar nem ver o resultado.
+// Aproveita a rotina semanal para apagar o histórico de alterações com mais de 12 meses (lib/audit.ts).
 
 export const maxDuration = 60
 
@@ -18,7 +20,11 @@ function autorizado(request: Request) {
 export async function GET(request: Request) {
   if (!autorizado(request)) return new Response("Não autorizado", { status: 401 })
   try {
-    const r = await backupSemanal()
+    const historicoApagado = await limparHistorico().catch((e) => {
+      console.error("[historico]", e)
+      return null
+    })
+    const r = { ...(await backupSemanal()), historicoApagado }
     console.log("[backup]", r)
     return Response.json(r)
   } catch (e) {

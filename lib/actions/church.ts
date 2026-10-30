@@ -14,7 +14,7 @@ import { Prisma } from "../generated/prisma/client"
 import { churchSchema, filialSchema, idSchema, whatsappSchema } from "../validations"
 
 export async function updateChurch(input: z.input<typeof churchSchema>) {
-  return secureAction("configuracoes", churchSchema, input, async ({ endereco, lat, lng, ...c }, { church }) => {
+  return secureAction("configuracoes", churchSchema, input, async ({ endereco, lat, lng, ...c }, { church }, registrar) => {
     // Pino marcado à mão vale; senão, localiza a igreja quando o endereço muda. Ela é o centro dos mapas do painel.
     const mudou = (["rua", "numero", "bairro", "cidade", "uf", "cep"] as const).some((k) => church[k].trim() !== endereco[k])
     let posicao = {}
@@ -26,6 +26,7 @@ export async function updateChurch(input: z.input<typeof churchSchema>) {
     }
 
     const row = await db.church.update({ where: { id: church.id }, data: { ...c, ...endereco, ...posicao } })
+    registrar("Alterou os dados da igreja")
 
     // Mantém o nome da organização no Clerk igual ao da igreja (aparece no seletor de igrejas).
     if (c.nome !== church.nome && church.clerkOrgId) {
@@ -49,31 +50,34 @@ async function dadosFilial(churchId: string, { endereco, lat, lng, ...f }: z.out
 
 /** Sede e filiais: cada uma com dirigente, telefone, endereço e pino no mapa. Só o admin. */
 export async function createFilial(input: z.input<typeof filialSchema>) {
-  return secureAction("configuracoes", filialSchema, input, async (f, { church }) => {
+  return secureAction("configuracoes", filialSchema, input, async (f, { church }, registrar) => {
     await db.congregation.create({ data: { ...(await dadosFilial(church.id, f, false)), churchId: church.id } })
+    registrar(`Criou a filial ${f.nome}`)
     return loadFiliais(church)
   })
 }
 
 export async function updateFilial(id: string, input: z.input<typeof filialSchema>) {
-  return secureAction("configuracoes", filialSchema.extend({ id: idSchema }), { ...input, id }, async ({ id, ...f }, { church }) => {
+  return secureAction("configuracoes", filialSchema.extend({ id: idSchema }), { ...input, id }, async ({ id, ...f }, { church }, registrar) => {
     const sede = (await loadFiliais(church))[0]
     await db.congregation.update({ where: { id, churchId: church.id }, data: await dadosFilial(church.id, f, sede?.id === id) })
+    registrar(`Editou a filial ${f.nome}`)
     return loadFiliais(church)
   })
 }
 
 /** Exclui a filial; os membros e as células dela passam para a sede. */
 export async function removeFilial(id: string) {
-  return secureAction("configuracoes", idSchema, id, async (id, { church }) => {
+  return secureAction("configuracoes", idSchema, id, async (id, { church }, registrar) => {
     const [sede] = await loadFiliais(church)
     if (!sede || sede.id === id) throw new ActionError("A sede não pode ser excluída.")
     try {
-      await db.$transaction([
+      const [, , filial] = await db.$transaction([
         db.member.updateMany({ where: { churchId: church.id, congregationId: id }, data: { congregationId: sede.id } }),
         db.cell.updateMany({ where: { churchId: church.id, congregationId: id }, data: { congregationId: sede.id } }),
         db.congregation.delete({ where: { id, churchId: church.id } }),
       ])
+      registrar(`Excluiu a filial ${filial.nome} (membros e células passaram para a sede)`)
     } catch (e) {
       // Usuários com acesso só a esta filial (onDelete: Restrict): o admin decide o acesso deles antes.
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2003")
@@ -85,7 +89,7 @@ export async function removeFilial(id: string) {
 }
 
 export async function updateWhatsApp(input: z.input<typeof whatsappSchema>) {
-  return secureAction("whatsapp", whatsappSchema, input, async (w, { church }) => {
+  return secureAction("whatsapp", whatsappSchema, input, async (w, { church }, registrar) => {
     const row = await db.church.update({
       where: { id: church.id },
       data: {
@@ -96,6 +100,7 @@ export async function updateWhatsApp(input: z.input<typeof whatsappSchema>) {
         whatsappAutomatico: w.envioAutomatico,
       },
     })
+    registrar("Alterou as configurações do WhatsApp")
     return toWhatsApp(row)
   })
 }
@@ -105,7 +110,7 @@ export async function updateWhatsApp(input: z.input<typeof whatsappSchema>) {
  * Mantém o cadastro da igreja, a logo e os usuários. Só o admin, e só digitando APAGAR.
  */
 export async function clearData(confirmacao: string) {
-  return secureAction(null, z.literal("APAGAR", "Digite APAGAR para confirmar"), confirmacao, async (_, { church }) => {
+  return secureAction(null, z.literal("APAGAR", "Digite APAGAR para confirmar"), confirmacao, async (_, { church }, registrar) => {
     await limitar("demo", church.id)
     await db.$transaction(
       async (tx) => {
@@ -114,12 +119,13 @@ export async function clearData(confirmacao: string) {
       },
       { timeout: 30_000 }
     )
+    registrar("Apagou todos os dados da igreja")
   })
 }
 
 /** Substitui todos os dados da igreja pelos de exemplo. Só o admin pode. */
 export async function loadDemoData() {
-  return secureAction(null, z.undefined(), undefined, async (_, { church }) => {
+  return secureAction(null, z.undefined(), undefined, async (_, { church }, registrar) => {
     await limitar("demo", church.id)
     await db.$transaction(
       async (tx) => {
@@ -128,6 +134,7 @@ export async function loadDemoData() {
       },
       { timeout: 30_000 }
     )
+    registrar("Trocou todos os dados da igreja pelos dados de exemplo")
   })
 }
 
@@ -138,7 +145,7 @@ const logoSchema = z
 
 /** Envia a logo para a organização no Clerk (que guarda a imagem) e anota o endereço dela na igreja. */
 export async function updateLogo(form: FormData) {
-  return secureAction("configuracoes", logoSchema, form.get("logo"), async (file, { church, user }) => {
+  return secureAction("configuracoes", logoSchema, form.get("logo"), async (file, { church, user }, registrar) => {
     if (!church.clerkOrgId) throw new ActionError("Igreja sem organização no Clerk.")
     const clerk = await clerkClient()
     const org = await clerk.organizations.updateOrganizationLogo(church.clerkOrgId, {
@@ -146,13 +153,15 @@ export async function updateLogo(form: FormData) {
       uploaderUserId: user.clerkUserId ?? undefined,
     })
     await db.church.update({ where: { id: church.id }, data: { logoUrl: org.imageUrl } })
+    registrar("Trocou a logo da igreja")
     return org.imageUrl
   })
 }
 
 export async function removeLogo() {
-  return secureAction("configuracoes", z.undefined(), undefined, async (_, { church }) => {
+  return secureAction("configuracoes", z.undefined(), undefined, async (_, { church }, registrar) => {
     if (church.clerkOrgId) await (await clerkClient()).organizations.deleteOrganizationLogo(church.clerkOrgId)
     await db.church.update({ where: { id: church.id }, data: { logoUrl: null } })
+    registrar("Removeu a logo da igreja")
   })
 }

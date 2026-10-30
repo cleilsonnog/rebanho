@@ -2,6 +2,7 @@ import "server-only"
 
 import type { z } from "zod"
 
+import { gravarHistorico } from "./audit"
 import { ActionError, getSession, type Session } from "./church"
 import { Prisma } from "./generated/prisma/client"
 import { canWrite, type Area } from "./permissions"
@@ -19,13 +20,15 @@ export type ActionResult<T = void> =
  * 3. usuário ativo e com permissão de escrita na área (`null` = só admin);
  * 4. entrada validada pelo esquema Zod.
  * A função recebe os dados já validados e a sessão, e deve filtrar toda consulta por `session.church.id`.
+ * Toda ação que altera dados chama `registrar("Excluiu o membro Fulano")`: o texto vai para o histórico
+ * (lib/audit.ts) só se a ação terminar sem erro.
  * Erros inesperados são registrados no servidor e chegam ao usuário só como mensagem genérica.
  */
 export async function secureAction<S extends z.ZodType, T>(
   area: Area | null,
   schema: S,
   input: unknown,
-  fn: (data: z.output<S>, session: Session) => Promise<T>
+  fn: (data: z.output<S>, session: Session, registrar: (descricao: string) => void) => Promise<T>
 ): Promise<ActionResult<T>> {
   try {
     const session = await getSession()
@@ -39,7 +42,10 @@ export async function secureAction<S extends z.ZodType, T>(
       return { ok: false, error: Object.values(errors)[0] ?? "Dados inválidos.", fieldErrors: errors }
     }
 
-    return { ok: true, data: await fn(parsed.data, session) }
+    const historico: string[] = []
+    const data = await fn(parsed.data, session, (d) => historico.push(d))
+    await gravarHistorico(session, area, historico)
+    return { ok: true, data }
   } catch (e) {
     if (e instanceof ActionError) return { ok: false, error: e.message }
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2025")

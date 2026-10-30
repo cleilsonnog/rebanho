@@ -51,19 +51,20 @@ function toRow({ endereco, congregacao: _c, nascimento, dataBatismo, membroDesde
 }
 
 export async function createMember(input: MemberInput) {
-  return secureAction("membros", memberSchema, input, async (m, { church, user }) => {
+  return secureAction("membros", memberSchema, input, async (m, { church, user }, registrar) => {
     const congs = await congregacoes(church.id)
     const row = await db.member.create({
       data: { ...toRow(m), ...(await posicao(m.endereco)), churchId: church.id, congregationId: congregationId(congs, m.congregacao, user) },
       include: memberInclude,
     })
+    registrar(`Cadastrou o membro ${row.nome}`)
     return toMember(row)
   })
 }
 
 export async function updateMember(id: string, input: MemberInput) {
   const schema = z.object({ id: idSchema, member: memberSchema })
-  return secureAction("membros", schema, { id, member: input }, async ({ id, member: m }, { church, user }) => {
+  return secureAction("membros", schema, { id, member: input }, async ({ id, member: m }, { church, user }, registrar) => {
     const congs = await congregacoes(church.id)
     const atual = await db.member.findFirstOrThrow({ where: { id, churchId: church.id, ...membrosScope(user) } })
     const row = await db.member.update({
@@ -71,18 +72,20 @@ export async function updateMember(id: string, input: MemberInput) {
       data: { ...toRow(m), ...(await posicao(m.endereco, atual)), congregationId: congregationId(congs, m.congregacao, user) },
       include: memberInclude,
     })
+    registrar(`Editou o cadastro de ${row.nome}`)
     return toMember(row)
   })
 }
 
 export async function deleteMember(id: string) {
-  return secureAction("membros", idSchema, id, async (id, { church, user }) => {
-    await db.member.delete({ where: { id, churchId: church.id, ...membrosScope(user) } })
+  return secureAction("membros", idSchema, id, async (id, { church, user }, registrar) => {
+    const row = await db.member.delete({ where: { id, churchId: church.id, ...membrosScope(user) } })
+    registrar(`Excluiu o membro ${row.nome}`)
   })
 }
 
 export async function importMembers(input: MemberInput[]) {
-  return secureAction("membros", importMembersSchema, input, async (ms, { church, user }) => {
+  return secureAction("membros", importMembersSchema, input, async (ms, { church, user }, registrar) => {
     await limitar("importacao", user.id)
     const congs = await congregacoes(church.id)
     const nomes = new Map([...congs.values()].map((c) => [c.id, c.nome]))
@@ -96,6 +99,7 @@ export async function importMembers(input: MemberInput[]) {
         congregationId: congregationId(congs, m.congregacao, user),
       })),
     })
+    registrar(`Importou ${rows.length} membros`)
     return rows.map((r) => toMember({ ...r, congregation: r.congregationId ? { nome: nomes.get(r.congregationId)! } : null }))
   })
 }

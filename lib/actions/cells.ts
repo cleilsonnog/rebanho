@@ -18,7 +18,7 @@ import {
   toCellStudy,
   toDate,
 } from "../data"
-import { inicioDaSemana } from "../format"
+import { formatDate, inicioDaSemana } from "../format"
 import type { CellRole } from "../generated/prisma/client"
 import { geocodeEndereco } from "../geocode"
 import { limitar } from "../rate-limit"
@@ -75,27 +75,34 @@ async function saveCell(session: Session, id: string | undefined, c: CellData) {
 }
 
 export async function createCell(input: z.input<typeof cellSchema>) {
-  return secureAction("celulas", cellSchema, input, (c, session) => saveCell(session, undefined, c))
+  return secureAction("celulas", cellSchema, input, async (c, session, registrar) => {
+    const cell = await saveCell(session, undefined, c)
+    registrar(`Criou a célula ${cell.nome}`)
+    return cell
+  })
 }
 
 export async function updateCell(id: string, input: z.input<typeof cellSchema>) {
-  return secureAction("celulas", cellSchema.extend({ id: idSchema }), { ...input, id }, async ({ id, ...c }, session) => {
+  return secureAction("celulas", cellSchema.extend({ id: idSchema }), { ...input, id }, async ({ id, ...c }, session, registrar) => {
     await minhaCelula(session, id)
-    return saveCell(session, id, c)
+    const cell = await saveCell(session, id, c)
+    registrar(`Editou a célula ${cell.nome}`)
+    return cell
   })
 }
 
 /** Exclui a célula e as reuniões dela; os membros continuam cadastrados, só sem célula. */
 export async function deleteCell(id: string) {
-  return secureAction("celulas", idSchema, id, async (id, session) => {
+  return secureAction("celulas", idSchema, id, async (id, session, registrar) => {
     await minhaCelula(session, id)
-    await db.cell.delete({ where: { id, churchId: session.church.id } })
+    const cell = await db.cell.delete({ where: { id, churchId: session.church.id } })
+    registrar(`Excluiu a célula ${cell.nome}`)
   })
 }
 
 /** Lança (ou corrige) a reunião da célula naquele dia. */
 export async function saveCellMeeting(input: z.input<typeof cellMeetingSchema>) {
-  return secureAction("reunioes", cellMeetingSchema, input, async (m, session) => {
+  return secureAction("reunioes", cellMeetingSchema, input, async (m, session, registrar) => {
     const { church } = session
     const cell = await minhaCelula(session, m.celulaId)
     const daCelula = new Set([...cell.members.map((x) => x.id), ...cell.leaders.map((l) => l.memberId)])
@@ -114,19 +121,24 @@ export async function saveCellMeeting(input: z.input<typeof cellMeetingSchema>) 
       await tx.cellVisitor.createMany({ data: m.visitantes.map((v) => ({ ...v, meetingId: meeting.id })) })
       return tx.cellMeeting.findUniqueOrThrow({ where: { id: meeting.id }, include: cellMeetingInclude })
     })
+    registrar(`Lançou a reunião de ${formatDate(m.data)} da célula ${cell.nome}`)
     return toCellMeeting(row)
   })
 }
 
 export async function deleteCellMeeting(id: string) {
-  return secureAction("reunioes", idSchema, id, async (id, { church, user }) => {
-    await db.cellMeeting.delete({ where: { id, churchId: church.id, cell: cellScope(user) } })
+  return secureAction("reunioes", idSchema, id, async (id, { church, user }, registrar) => {
+    const row = await db.cellMeeting.delete({
+      where: { id, churchId: church.id, cell: cellScope(user) },
+      include: { cell: { select: { nome: true } } },
+    })
+    registrar(`Excluiu a reunião de ${row.data.toLocaleDateString("pt-BR", { timeZone: "UTC" })} da célula ${row.cell.nome}`)
   })
 }
 
 /** Publica (ou corrige) o estudo da semana, que vale para todas as células. */
 export async function saveCellStudy(input: z.input<typeof cellStudySchema>) {
-  return secureAction("estudos", cellStudySchema, input, async ({ semana, ...e }, { church, user }) => {
+  return secureAction("estudos", cellStudySchema, input, async ({ semana, ...e }, { church, user }, registrar) => {
     if (filialDe(user)) throw new ActionError("O estudo da semana vale para a igreja toda e é publicado pela sede.")
     const inicio = toDate(inicioDaSemana(semana))
     const row = await db.cellStudy.upsert({
@@ -134,14 +146,16 @@ export async function saveCellStudy(input: z.input<typeof cellStudySchema>) {
       create: { ...e, churchId: church.id, semana: inicio },
       update: e,
     })
+    registrar(`Publicou o estudo da semana "${row.tema}"`)
     return toCellStudy(row)
   })
 }
 
 export async function deleteCellStudy(id: string) {
-  return secureAction("estudos", idSchema, id, async (id, { church, user }) => {
+  return secureAction("estudos", idSchema, id, async (id, { church, user }, registrar) => {
     if (filialDe(user)) throw new ActionError("O estudo da semana vale para a igreja toda e é publicado pela sede.")
-    await db.cellStudy.delete({ where: { id, churchId: church.id } })
+    const row = await db.cellStudy.delete({ where: { id, churchId: church.id } })
+    registrar(`Excluiu o estudo da semana "${row.tema}"`)
   })
 }
 

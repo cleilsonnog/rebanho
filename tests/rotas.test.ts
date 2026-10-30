@@ -29,7 +29,7 @@ describe("rota do backup (/api/cron/backup)", () => {
     vi.stubEnv("CRON_SECRET", "segredo-de-teste")
     const r = await GET(pedido("Bearer segredo-de-teste"))
     expect(r.status).toBe(200)
-    expect(await r.json()).toEqual({ criado: "backup-teste", removidos: [] })
+    expect(await r.json()).toEqual({ criado: "backup-teste", removidos: [], historicoApagado: 0 })
     vi.unstubAllEnvs()
   })
 })

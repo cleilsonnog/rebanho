@@ -48,6 +48,7 @@ model Church {
   cells         Cell[]
   cellMeetings  CellMeeting[]
   cellStudies   CellStudy[]
+  auditLogs     AuditLog[]
 }
 
 enum UserRole {
@@ -357,6 +358,24 @@ model CellStudy {
   updatedAt  DateTime @updatedAt
 
   @@unique([churchId, semana])
+}
+
+/// Histórico de alterações (quem mudou o quê e quando), gravado por `secureAction` só quando a ação dá certo.
+/// Quem fez fica copiado (nome e função): o registro continua legível se o usuário for removido.
+/// Não é apagado com os dados da igreja ("Apagar dados"); só depois de 12 meses (lib/audit.ts).
+model AuditLog {
+  id        String   @id @default(cuid())
+  churchId  String
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  userId    String?
+  userNome  String
+  papel     UserRole
+  /// Área da permissão (lib/permissions.ts); vazio = ação só do admin.
+  area      String?
+  descricao String
+  createdAt DateTime @default(now())
+
+  @@index([churchId, createdAt])
 }
 
 /// Centro aproximado de cada bairro, já consultado no OpenStreetMap. Dado público, compartilhado

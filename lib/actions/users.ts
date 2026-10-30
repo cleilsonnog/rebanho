@@ -8,6 +8,7 @@ import { secureAction } from "../action"
 import { ActionError } from "../church"
 import { db } from "../db"
 import { assertMembers, toUser, userInclude } from "../data"
+import { ROLE_LABEL } from "../format"
 import { limitar } from "../rate-limit"
 import { idSchema, inviteSchema, updateUserSchema } from "../validations"
 
@@ -22,7 +23,7 @@ async function filialId(churchId: string, nome: string | null | undefined, papel
 }
 
 export async function inviteUser(input: z.input<typeof inviteSchema>) {
-  return secureAction(null, inviteSchema, input, async ({ nome, email, papel, memberId, congregacao }, { church, user }) => {
+  return secureAction(null, inviteSchema, input, async ({ nome, email, papel, memberId, congregacao }, { church, user }, registrar) => {
     if (!church.clerkOrgId) throw new ActionError("Igreja sem organização no Clerk.")
     if (memberId) await assertMembers(church.id, [memberId])
     const congregationId = await filialId(church.id, congregacao, papel)
@@ -43,6 +44,7 @@ export async function inviteUser(input: z.input<typeof inviteSchema>) {
         role: "org:member",
         redirectUrl: origin ? `${origin}/entrar` : undefined,
       })
+      registrar(`Convidou ${nome} (${email}) como ${ROLE_LABEL[papel]}`)
       return toUser(
         await db.churchUser.update({ where: { id: row.id }, data: { clerkInvitationId: convite.id }, include: userInclude })
       )
@@ -56,7 +58,7 @@ export async function inviteUser(input: z.input<typeof inviteSchema>) {
 
 export async function updateUser(id: string, input: z.input<typeof updateUserSchema>) {
   const schema = updateUserSchema.extend({ id: idSchema })
-  return secureAction(null, schema, { ...input, id }, async ({ id, congregacao, ...data }, { church, user }) => {
+  return secureAction(null, schema, { ...input, id }, async ({ id, congregacao, ...data }, { church, user }, registrar) => {
     // Impede o admin de se rebaixar ou se desativar e deixar a igreja sem administrador.
     if (id === user.id && (data.papel || data.ativo !== undefined)) throw new ActionError("Você não pode alterar o seu próprio acesso.")
     if (data.memberId) await assertMembers(church.id, [data.memberId])
@@ -65,14 +67,20 @@ export async function updateUser(id: string, input: z.input<typeof updateUserSch
     // Trocar para uma função sem filial (ex.: tesouraria) limpa a restrição; mudar a filial só se veio no pedido.
     const congregationId =
       congregacao !== undefined ? await filialId(church.id, congregacao, papel) : papel === "secretaria" || papel === "pastor" ? undefined : null
-    return toUser(
-      await db.churchUser.update({ where: { id, churchId: church.id }, data: { ...data, congregationId }, include: userInclude })
-    )
+    const row = await db.churchUser.update({ where: { id, churchId: church.id }, data: { ...data, congregationId }, include: userInclude })
+    const mudancas = [
+      papel !== atual.papel && `função: ${ROLE_LABEL[atual.papel]} → ${ROLE_LABEL[papel]}`,
+      data.ativo === false && atual.ativo && "acesso desativado",
+      data.ativo && !atual.ativo && "acesso reativado",
+      row.congregationId !== atual.congregationId && `filial: ${row.congregation?.nome ?? "igreja toda"}`,
+    ].filter(Boolean)
+    registrar(`Alterou o usuário ${row.nome}${mudancas.length ? ` (${mudancas.join(", ")})` : ""}`)
+    return toUser(row)
   })
 }
 
 export async function removeUser(id: string) {
-  return secureAction(null, idSchema, id, async (id, { church, user }) => {
+  return secureAction(null, idSchema, id, async (id, { church, user }, registrar) => {
     if (id === user.id) throw new ActionError("Você não pode remover a si mesmo.")
     const alvo = await db.churchUser.findUniqueOrThrow({ where: { id, churchId: church.id } })
 
@@ -92,5 +100,6 @@ export async function removeUser(id: string) {
       ).catch((e) => console.error("[removeUser] Clerk", e))
     }
     await db.churchUser.delete({ where: { id: alvo.id } })
+    registrar(`Removeu o acesso de ${alvo.nome} (${alvo.email})`)
   })
 }

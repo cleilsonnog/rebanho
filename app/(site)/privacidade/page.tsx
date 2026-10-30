@@ -35,6 +35,10 @@ export default function PrivacidadePage() {
           </li>
           <li><strong>Dados dos usuários do sistema</strong>: nome, e-mail e função na igreja.</li>
           <li><strong>Dados técnicos</strong> necessários para o login e a segurança da conta.</li>
+          <li>
+            <strong>Histórico de alterações</strong>: quem cadastrou, editou ou excluiu algo no sistema, e quando (por
+            exemplo, &quot;Editou o cadastro de Fulano&quot;). Fica guardado por 12 meses.
+          </li>
         </ul>
       </Secao>
 
@@ -73,6 +77,11 @@ export default function PrivacidadePage() {
             reúne é marcada no ponto exato.
           </li>
           <li>Validação no servidor de todas as informações enviadas pelos formulários.</li>
+          <li>
+            Histórico de alterações: o administrador da igreja vê quem cadastrou, editou ou excluiu cada informação, e
+            quando. Ninguém consegue apagar esse histórico pelo sistema; ele é removido automaticamente depois de 12
+            meses.
+          </li>
           <li>
             Cópia de segurança semanal de todo o banco de dados, feita na própria Neon, no Brasil. Guardamos as quatro
             últimas (cerca de um mês); as mais antigas são apagadas automaticamente.
