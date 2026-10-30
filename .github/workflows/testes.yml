@@ -1,0 +1,40 @@
+# Confere cada push e cada PR (inclusive os do Dependabot): lint, tipos e os testes de segurança.
+# Precisa dos segredos TEST_DATABASE_URL e TEST_DIRECT_URL (branch "testes" da Neon, nunca a produção)
+# em Settings › Secrets and variables › Actions, e os mesmos em › Dependabot. Veja tests/README.md.
+name: Testes
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+# Há um banco de testes só: duas execuções ao mesmo tempo apagariam os dados uma da outra.
+concurrency:
+  group: banco-de-testes
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+      TEST_DIRECT_URL: ${{ secrets.TEST_DIRECT_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      # Migrações novas entram no banco de testes antes dos testes (a produção continua com você).
+      - name: Migrações no banco de testes
+        run: npx prisma migrate deploy
+        env:
+          DIRECT_URL: ${{ secrets.TEST_DIRECT_URL }}
+      - run: npm test

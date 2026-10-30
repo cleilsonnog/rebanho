@@ -24,6 +24,13 @@ Depois de uma migração nova, aplique também no banco de testes:
 
 (com as variáveis do `.env` carregadas, ex.: `set -a; . ./.env; set +a`).
 
+## No GitHub
+
+`.github/workflows/testes.yml` roda lint, tipos e `npm test` a cada push na `master` e em cada PR,
+inclusive os do Dependabot, e aplica as migrações novas no banco de testes antes. Os segredos
+`TEST_DATABASE_URL` e `TEST_DIRECT_URL` (os mesmos do `.env`) ficam no repositório em
+Settings › Secrets and variables, cadastrados duas vezes: em **Actions** e em **Dependabot**.
+
 ## O que não está coberto
 
 - O bloqueio de usuário desativado e a ligação com o Clerk (o login é simulado).
