@@ -16,7 +16,8 @@ Rode antes de cada commit que mexa em `lib/`, nas ações ou nas permissões. Le
 
 Os testes usam a branch `testes` da Neon (`TEST_DATABASE_URL` e `TEST_DIRECT_URL` no `.env`), sem dados
 reais. Eles se recusam a rodar se esse endereço for o mesmo da produção. Cada arquivo cria igrejas
-"TESTE ..." com os dados de exemplo e apaga no fim.
+"TESTE ..." com os dados de exemplo e apaga no fim. Cada execução tem um prefixo próprio
+(`tests/helpers.ts` › `PREFIXO`), então o GitHub pode rodar várias ao mesmo tempo.
 
 Depois de uma migração nova, aplique também no banco de testes:
 

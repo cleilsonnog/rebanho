@@ -8,10 +8,11 @@ on:
     branches: [master]
   pull_request:
 
-# Há um banco de testes só: duas execuções ao mesmo tempo apagariam os dados uma da outra.
+# Um push novo no mesmo PR cancela a execução anterior dele. Execuções diferentes rodam juntas no banco de
+# testes: cada uma usa as próprias igrejas (tests/helpers.ts › PREFIXO).
 concurrency:
-  group: banco-de-testes
-  cancel-in-progress: false
+  group: testes-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

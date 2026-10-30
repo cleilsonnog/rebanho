@@ -7,7 +7,7 @@ import { limparHistorico } from "@/lib/audit"
 import { db } from "@/lib/db"
 import type { Church, ChurchUser } from "@/lib/generated/prisma/client"
 
-import { apagarIgrejasDeTeste, criarIgreja, criarUsuario, logar, membro } from "./helpers"
+import { PREFIXO, apagarIgrejasDeTeste, criarIgreja, criarUsuario, logar, membro } from "./helpers"
 
 // Histórico de alterações (lib/audit.ts): grava quem fez o quê só quando a ação dá certo,
 // cada igreja vê só o seu, só o admin consulta e "Apagar dados" não apaga o histórico.
@@ -22,7 +22,7 @@ const ultimos = (churchId: string) => db.auditLog.findMany({ where: { churchId }
 beforeAll(async () => {
   await apagarIgrejasDeTeste()
   igreja = await criarIgreja("Historico")
-  outra = await db.church.create({ data: { nome: "TESTE Historico outra" } })
+  outra = await db.church.create({ data: { nome: `${PREFIXO}Historico outra` } })
   admin = await criarUsuario(igreja.id, "admin")
   secretaria = await criarUsuario(igreja.id, "secretaria")
 })

@@ -5,16 +5,24 @@ import { db } from "@/lib/db"
 import { insertDemoData } from "@/lib/demo"
 import type { ChurchUser, UserRole } from "@/lib/generated/prisma/client"
 
+// Cada execução (seu computador ou um job do GitHub) usa um prefixo próprio, para várias rodarem juntas no
+// mesmo banco de testes sem uma apagar as igrejas da outra.
+export const PREFIXO = `TESTE ${process.env.GITHUB_RUN_ID ?? "local"} `
+
 /** Igreja com os dados de exemplo (148 membros, células, filiais Leste e Sul, visitas, financeiro). */
 export async function criarIgreja(nome: string) {
-  const church = await db.church.create({ data: { nome: `TESTE ${nome}`, cidade: "Goiânia", uf: "GO" } })
+  const church = await db.church.create({ data: { nome: `${PREFIXO}${nome}`, cidade: "Goiânia", uf: "GO" } })
   await db.$transaction((tx) => insertDemoData(tx, church.id), { timeout: 120_000 })
   return church
 }
 
+/** Apaga as igrejas desta execução e as que sobraram de execuções interrompidas (mais de 2 horas). */
 export async function apagarIgrejasDeTeste() {
-  await db.churchUser.updateMany({ where: { church: { nome: { startsWith: "TESTE " } } }, data: { congregationId: null } })
-  await db.church.deleteMany({ where: { nome: { startsWith: "TESTE " } } })
+  const where = {
+    OR: [{ nome: { startsWith: PREFIXO } }, { nome: { startsWith: "TESTE " }, createdAt: { lt: new Date(Date.now() - 2 * 3600_000) } }],
+  }
+  await db.churchUser.updateMany({ where: { church: where }, data: { congregationId: null } })
+  await db.church.deleteMany({ where })
 }
 
 let n = 0
