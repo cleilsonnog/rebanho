@@ -57,7 +57,9 @@ describe("secretaria", () => {
 
   it("quem sai da turma perde a presença registrada", async () => {
     const turma = await db.schoolClass.findFirstOrThrow({ where: { churchId: igreja.id, nome: "T1" }, include: { students: true, teachers: true } })
-    const [fica, sai] = turma.students.map((s) => s.memberId)
+    // Fica quem concluiu no teste anterior (a ordem do banco não é garantida).
+    const fica = turma.students.find((s) => s.situacao === "concluido")!.memberId
+    const sai = turma.students.find((s) => s.memberId !== fica)!.memberId
     const r = await saveSchoolClass(turma.id, {
       escolaId: turma.schoolId,
       nome: "T1",
