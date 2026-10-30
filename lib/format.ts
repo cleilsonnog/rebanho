@@ -1,4 +1,4 @@
-import type { Member, MemberStatus, UserRole } from "./types"
+import type { Member, MemberStatus, SituacaoAluno, UserRole } from "./types"
 
 // Data de referência da demonstração. Em produção, troque por `new Date()`.
 export const TODAY = new Date("2026-10-24T12:00:00")
@@ -65,10 +65,16 @@ export const ROLE_LABEL: Record<UserRole, string> = {
 
 export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   admin: ["Tudo, inclusive usuários e plano"],
-  secretaria: ["Membros", "Visitas", "Células", "Estudo da semana", "Certificados", "Carteirinhas", "Agenda", "Igreja toda ou só uma filial"],
+  secretaria: ["Membros", "Visitas", "Células", "Estudo da semana", "Escolas e turmas", "Certificados", "Carteirinhas", "Agenda", "Igreja toda ou só uma filial"],
   tesouraria: ["Financeiro", "Relatórios financeiros", "Nomes dos membros, sem endereço ou contato"],
-  pastor: ["Membros", "Visitas", "Estudo da semana", "Reuniões de célula", "Mapa", "Aniversários", "Agenda", "Igreja toda ou só uma filial"],
+  pastor: ["Membros", "Visitas", "Estudo da semana", "Reuniões de célula", "Escolas (consulta)", "Mapa", "Aniversários", "Agenda", "Igreja toda ou só uma filial"],
   lider: ["Só as pessoas da sua célula", "Reuniões da célula: presença, visitantes e observações", "Agenda"],
+}
+
+export const SITUACAO_ALUNO_LABEL: Record<SituacaoAluno, string> = {
+  cursando: "Cursando",
+  concluido: "Concluiu",
+  desistiu: "Desistiu",
 }
 
 export const AGE_BANDS = [

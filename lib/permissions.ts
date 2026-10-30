@@ -8,6 +8,8 @@ export type Area =
   | "celulas"
   | "reunioes"
   | "estudos"
+  | "escolas"
+  | "aulas"
   | "financeiro"
   | "whatsapp"
   | "configuracoes"
@@ -15,12 +17,13 @@ export type Area =
 
 /** O que cada função pode alterar. O admin pode tudo. Usado no servidor (vale) e na tela (só esconde botões). */
 const ESCRITA: Record<Exclude<UserRole, "admin">, Area[]> = {
-  secretaria: ["membros", "visitas", "certificados", "agenda", "celulas", "reunioes", "estudos"],
-  tesouraria: ["financeiro"],
-  pastor: ["membros", "visitas", "agenda", "reunioes", "estudos"],
+  secretaria: ["membros", "visitas", "certificados", "agenda", "celulas", "reunioes", "estudos", "escolas", "aulas"],
+  // "aulas": qualquer função lança a presença, mas só das turmas em que é professor (lib/data.ts › turmasDoProfessor).
+  tesouraria: ["financeiro", "aulas"],
+  pastor: ["membros", "visitas", "agenda", "reunioes", "estudos", "aulas"],
   // Líder de célula: lança as reuniões só das células que lidera (filtro em lib/data.ts › cellScope).
   // Montar a célula (liderança e membros) é da secretaria.
-  lider: ["agenda", "reunioes"],
+  lider: ["agenda", "reunioes", "aulas"],
 }
 
 const CUIDADO_PASTORAL: UserRole[] = ["admin", "secretaria", "pastor"]

@@ -49,6 +49,9 @@ model Church {
   cellMeetings  CellMeeting[]
   cellStudies   CellStudy[]
   auditLogs     AuditLog[]
+  schools       School[]
+  schoolClasses SchoolClass[]
+  schoolLessons SchoolLesson[]
 }
 
 enum UserRole {
@@ -162,12 +165,15 @@ model Member {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  visits       Visit[]
-  transactions Transaction[]
-  certificates Certificate[]
-  cellRoles    CellLeader[]
-  attendances  CellAttendance[]
-  churchUser   ChurchUser?
+  visits            Visit[]
+  transactions      Transaction[]
+  certificates      Certificate[]
+  cellRoles         CellLeader[]
+  attendances       CellAttendance[]
+  teaching          SchoolTeacher[]
+  enrollments       SchoolEnrollment[]
+  schoolAttendances SchoolAttendance[]
+  churchUser        ChurchUser?
 
   @@index([churchId, nome])
   @@index([churchId, status])
@@ -358,6 +364,93 @@ model CellStudy {
   updatedAt  DateTime @updatedAt
 
   @@unique([churchId, semana])
+}
+
+/// Escola da igreja (ex.: Escola de Batismo, Escola de Discípulos). Vale para a igreja toda.
+model School {
+  id        String        @id @default(cuid())
+  churchId  String
+  church    Church        @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  nome      String
+  descricao String        @default("")
+  createdAt DateTime      @default(now())
+  classes   SchoolClass[]
+
+  @@unique([churchId, nome])
+}
+
+/// Turma de uma escola: professores, alunos e as aulas com presença.
+model SchoolClass {
+  id        String             @id @default(cuid())
+  churchId  String
+  church    Church             @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  schoolId  String
+  school    School             @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  nome      String
+  inicio    DateTime?          @db.Date
+  /// Texto livre, ex.: "Domingos, 9h".
+  horario   String             @default("")
+  local     String             @default("")
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  teachers  SchoolTeacher[]
+  students  SchoolEnrollment[]
+  lessons   SchoolLesson[]
+
+  @@unique([schoolId, nome])
+  @@index([churchId])
+}
+
+/// Professor da turma. Pelo cadastro de membro ligado ao usuário, ele lança as aulas só das turmas dele.
+model SchoolTeacher {
+  classId  String
+  class    SchoolClass @relation(fields: [classId], references: [id], onDelete: Cascade)
+  memberId String
+  member   Member      @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@id([classId, memberId])
+}
+
+enum EnrollmentStatus {
+  cursando
+  concluido
+  desistiu
+}
+
+model SchoolEnrollment {
+  classId     String
+  class       SchoolClass      @relation(fields: [classId], references: [id], onDelete: Cascade)
+  memberId    String
+  member      Member           @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  situacao    EnrollmentStatus @default(cursando)
+  concluidoEm DateTime?        @db.Date
+
+  @@id([classId, memberId])
+}
+
+/// Aula de um dia, com a presença dos alunos. Uma por turma por dia.
+model SchoolLesson {
+  id        String             @id @default(cuid())
+  churchId  String
+  church    Church             @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  classId   String
+  class     SchoolClass        @relation(fields: [classId], references: [id], onDelete: Cascade)
+  data      DateTime           @db.Date
+  tema      String             @default("")
+  createdAt DateTime           @default(now())
+  presencas SchoolAttendance[]
+
+  @@unique([classId, data])
+  @@index([churchId, data])
+}
+
+model SchoolAttendance {
+  lessonId String
+  lesson   SchoolLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  memberId String
+  member   Member       @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@id([lessonId, memberId])
 }
 
 /// Histórico de alterações (quem mudou o quê e quando), gravado por `secureAction` só quando a ação dá certo.

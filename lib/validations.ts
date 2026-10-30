@@ -177,6 +177,38 @@ export const cellStudySchema = z.object({
   texto: obrigatorio(20_000, "Estudo"),
 })
 
+export const schoolSchema = z.object({
+  nome: obrigatorio(80, "Nome da escola"),
+  descricao: texto(500),
+})
+
+export const schoolClassSchema = z.object({
+  escolaId: id,
+  nome: obrigatorio(60, "Nome da turma"),
+  inicio: dataOpcional,
+  horario: texto(60),
+  local: texto(120),
+  professores: membroIds(5, "Escolha no máximo 5 professores").refine((p) => p.length > 0, "Escolha ao menos um professor"),
+  alunos: membroIds(300, "Alunos demais numa turma"),
+})
+
+export const SITUACOES_ALUNO = ["cursando", "concluido", "desistiu"] as const
+
+export const enrollmentSchema = z.object({
+  turmaId: id,
+  membroId: id,
+  situacao: z.enum(SITUACOES_ALUNO, "Situação inválida"),
+  /** Só para quem concluiu; vazio = hoje. */
+  concluidoEm: dataOpcional,
+})
+
+export const schoolLessonSchema = z.object({
+  turmaId: id,
+  data: data.refine((v) => v <= hoje(), "A aula não pode estar no futuro"),
+  tema: texto(120),
+  presentes: membroIds(300, "Pessoas demais"),
+})
+
 export const geocodeSchema = enderecoSchema
 
 /** Pino marcado à mão no mapa; 0/0 (ou ausente) = o servidor localiza pelo endereço. */

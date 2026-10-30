@@ -27,8 +27,9 @@ export default function PrivacidadePage() {
         <ul className="ml-5 list-disc space-y-2">
           <li>
             <strong>Dados dos membros</strong>, cadastrados pela igreja: nome, contato, endereço, datas (nascimento,
-            batismo, membresia), cargo, ministérios, visitas pastorais, contribuições, certificados e a célula que
-            frequentam, com a presença em cada reunião.
+            batismo, membresia), cargo, ministérios, visitas pastorais, contribuições, certificados, a célula que
+            frequentam, com a presença em cada reunião, e as escolas da igreja que cursam (turma, presença nas aulas e
+            conclusão).
           </li>
           <li>
             <strong>Visitantes de células</strong>, lançados pelo líder: nome e, se informado, telefone.

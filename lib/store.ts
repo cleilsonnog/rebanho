@@ -10,9 +10,27 @@ import * as church from "./actions/church"
 import * as events from "./actions/events"
 import * as finance from "./actions/finance"
 import * as members from "./actions/members"
+import * as schools from "./actions/schools"
 import * as users from "./actions/users"
 import * as visits from "./actions/visits"
-import type { AppData, AppUser, Cell, CellMeeting, CellStudy, Church, Filial, ChurchEvent, IssuedCertificate, Member, Transaction, Visit, WhatsAppSettings } from "./types"
+import type {
+  AppData,
+  AppUser,
+  Cell,
+  CellMeeting,
+  CellStudy,
+  Church,
+  Filial,
+  ChurchEvent,
+  IssuedCertificate,
+  Member,
+  School,
+  SchoolClass,
+  SchoolLesson,
+  Transaction,
+  Visit,
+  WhatsAppSettings,
+} from "./types"
 
 type Input<F extends (...args: never[]) => unknown> = Parameters<F>[0]
 
@@ -41,6 +59,14 @@ interface AppState extends AppData {
   removeCellMeeting: (id: string) => Promise<ActionResult>
   saveCellStudy: (e: Input<typeof cells.saveCellStudy>) => Promise<ActionResult<CellStudy>>
   removeCellStudy: (id: string) => Promise<ActionResult>
+
+  saveSchool: (id: string | undefined, e: Parameters<typeof schools.saveSchool>[1]) => Promise<ActionResult<School>>
+  removeSchool: (id: string) => Promise<ActionResult>
+  saveSchoolClass: (id: string | undefined, t: Parameters<typeof schools.saveSchoolClass>[1]) => Promise<ActionResult<SchoolClass>>
+  removeSchoolClass: (id: string) => Promise<ActionResult>
+  setEnrollment: (e: Input<typeof schools.setEnrollment>) => Promise<ActionResult<SchoolClass>>
+  saveSchoolLesson: (a: Input<typeof schools.saveSchoolLesson>) => Promise<ActionResult<SchoolLesson>>
+  removeSchoolLesson: (id: string) => Promise<ActionResult>
 
   addCertificates: (c: Input<typeof certificates.issueCertificates>) => Promise<ActionResult<IssuedCertificate[]>>
 
@@ -72,6 +98,11 @@ function putCell(list: Cell[], cell: Cell) {
   return [...outras, cell].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
 }
 
+const porNome = <T extends { nome: string }>(xs: T[]) => xs.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
+
+/** Turma salva no lugar da antiga, sem mexer na ordem da lista. */
+const putClass = (list: SchoolClass[], t: SchoolClass) => (list.some((x) => x.id === t.id) ? list.map((x) => (x.id === t.id ? t : x)) : [t, ...list])
+
 const semPessoa = (id: string) => (ids: string[]) => ids.filter((x) => x !== id)
 
 const byDateDesc = <T extends { data: string }>(xs: T[]) => xs.sort((a, b) => b.data.localeCompare(a.data))
@@ -98,6 +129,12 @@ function createAppStore(data: AppData) {
             membroIds: semPessoa(id)(c.membroIds),
           })),
           cellMeetings: s.cellMeetings.map((r) => ({ ...r, presentes: semPessoa(id)(r.presentes) })),
+          schoolClasses: s.schoolClasses.map((t) => ({
+            ...t,
+            professores: t.professores.filter((p) => p.id !== id),
+            alunos: t.alunos.filter((a) => a.id !== id),
+          })),
+          schoolLessons: s.schoolLessons.map((a) => ({ ...a, presentes: semPessoa(id)(a.presentes) })),
         }))
       ),
 
@@ -141,6 +178,42 @@ function createAppStore(data: AppData) {
       ),
     removeCellStudy: (id) =>
       apply(cells.deleteCellStudy(id), () => set((s) => ({ cellStudies: s.cellStudies.filter((x) => x.id !== id) }))),
+
+    saveSchool: (id, e) =>
+      apply(schools.saveSchool(id, e), (escola) => set((s) => ({ schools: porNome([...s.schools.filter((x) => x.id !== escola.id), escola]) }))),
+    removeSchool: (id) =>
+      apply(schools.deleteSchool(id), () =>
+        set((s) => {
+          const turmas = new Set(s.schoolClasses.filter((t) => t.escolaId === id).map((t) => t.id))
+          return {
+            schools: s.schools.filter((x) => x.id !== id),
+            schoolClasses: s.schoolClasses.filter((t) => !turmas.has(t.id)),
+            schoolLessons: s.schoolLessons.filter((a) => !turmas.has(a.turmaId)),
+          }
+        })
+      ),
+    // Quem saiu da turma perde a presença nas aulas (o servidor faz o mesmo).
+    saveSchoolClass: (id, t) =>
+      apply(schools.saveSchoolClass(id, t), (turma) =>
+        set((s) => {
+          const alunos = new Set(turma.alunos.map((a) => a.id))
+          return {
+            schoolClasses: putClass(s.schoolClasses, turma),
+            schoolLessons: s.schoolLessons.map((a) => (a.turmaId === turma.id ? { ...a, presentes: a.presentes.filter((p) => alunos.has(p)) } : a)),
+          }
+        })
+      ),
+    removeSchoolClass: (id) =>
+      apply(schools.deleteSchoolClass(id), () =>
+        set((s) => ({ schoolClasses: s.schoolClasses.filter((t) => t.id !== id), schoolLessons: s.schoolLessons.filter((a) => a.turmaId !== id) }))
+      ),
+    setEnrollment: (e) => apply(schools.setEnrollment(e), (turma) => set((s) => ({ schoolClasses: putClass(s.schoolClasses, turma) }))),
+    saveSchoolLesson: (a) =>
+      apply(schools.saveSchoolLesson(a), (aula) =>
+        set((s) => ({ schoolLessons: byDateDesc([aula, ...s.schoolLessons.filter((x) => x.id !== aula.id)]) }))
+      ),
+    removeSchoolLesson: (id) =>
+      apply(schools.deleteSchoolLesson(id), () => set((s) => ({ schoolLessons: s.schoolLessons.filter((a) => a.id !== id) }))),
 
     addCertificates: (c) =>
       apply(certificates.issueCertificates(c), (cs) => set((s) => ({ certificates: [...cs, ...s.certificates] }))),

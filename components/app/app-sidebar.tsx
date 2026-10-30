@@ -9,6 +9,7 @@ import {
   Cake,
   CalendarDays,
   ChevronsUpDown,
+  GraduationCap,
   HandCoins,
   HeartHandshake,
   House,
@@ -74,6 +75,7 @@ const NAV = [
     label: "Gestão",
     items: [
       { title: "Células", href: "/app/celulas", icon: House },
+      { title: "Escolas", href: "/app/escolas", icon: GraduationCap },
       { title: "Financeiro", href: "/app/financeiro", icon: HandCoins },
       { title: "Agenda", href: "/app/agenda", icon: CalendarDays },
       { title: "WhatsApp", href: "/app/whatsapp", icon: MessageCircle },
@@ -83,13 +85,15 @@ const NAV = [
 ] as const
 
 /** Esconde do menu o que a função não usa. O servidor bloqueia de qualquer forma. */
-const VISIVEL: Record<string, (papel: UserRole) => boolean> = {
+const VISIVEL: Record<string, (papel: UserRole, professor: boolean) => boolean> = {
   "/app/importar": (p) => canWrite(p, "membros"),
   "/app/visitas": (p) => canRead(p, "visitas"),
   "/app/mapa": (p) => canRead(p, "mapa"),
   "/app/carteirinhas": (p) => canRead(p, "certificados"),
   "/app/certificados": (p) => canRead(p, "certificados"),
   "/app/celulas": (p) => canRead(p, "celulas"),
+  // Tesouraria e líder de célula só veem Escolas se forem professores de alguma turma.
+  "/app/escolas": (p, professor) => ["admin", "secretaria", "pastor"].includes(p) || professor,
   "/app/financeiro": (p) => canRead(p, "financeiro"),
   "/app/whatsapp": (p) => p === "admin",
   "/app/configuracoes": (p) => p === "admin",
@@ -101,6 +105,7 @@ export function AppSidebar() {
   const { organization } = useOrganization()
   const { signOut } = useClerk()
   const papel = useApp((s) => s.me.papel)
+  const professor = useApp((s) => s.schoolClasses.length > 0)
   const nome = user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? ""
   const birthdays = useApp(
     (s) => s.members.filter((m) => m.status !== "transferido" && daysUntilBirthday(m.nascimento) <= 7).length
@@ -131,7 +136,7 @@ export function AppSidebar() {
           <SidebarGroup key={group.label}>
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
             <SidebarMenu>
-              {group.items.filter((item) => VISIVEL[item.href]?.(papel) ?? true).map((item) => (
+              {group.items.filter((item) => VISIVEL[item.href]?.(papel, professor) ?? true).map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton asChild isActive={isActive(item.href)} tooltip={item.title}>
                     <Link href={item.href}>

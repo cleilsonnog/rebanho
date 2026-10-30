@@ -3,7 +3,7 @@ import "server-only"
 import { db } from "./db"
 import { ActionError, type Session } from "./church"
 import type * as P from "./generated/prisma/client"
-import { canRead, memberScope } from "./permissions"
+import { canRead, canWrite, memberScope } from "./permissions"
 import type {
   AppData,
   AppUser,
@@ -15,6 +15,9 @@ import type {
   Filial,
   IssuedCertificate,
   Member,
+  School,
+  SchoolClass,
+  SchoolLesson,
   Transaction,
   Visit,
   WhatsAppSettings,
@@ -144,6 +147,55 @@ export const toCellStudy = (r: P.CellStudy): CellStudy => ({
   texto: r.texto,
 })
 
+export const toSchool = (r: P.School): School => ({ id: r.id, nome: r.nome, descricao: r.descricao })
+
+const pessoa = { select: { id: true, nome: true } } as const
+
+export const schoolClassInclude = {
+  teachers: { select: { member: pessoa }, orderBy: { member: { nome: "asc" } } },
+  students: { select: { member: pessoa, situacao: true, concluidoEm: true }, orderBy: { member: { nome: "asc" } } },
+} as const
+
+type SchoolClassRow = P.SchoolClass & {
+  teachers: { member: { id: string; nome: string } }[]
+  students: { member: { id: string; nome: string }; situacao: P.EnrollmentStatus; concluidoEm: Date | null }[]
+}
+
+export const toSchoolClass = (r: SchoolClassRow): SchoolClass => ({
+  id: r.id,
+  escolaId: r.schoolId,
+  nome: r.nome,
+  inicio: toISOOpt(r.inicio),
+  horario: r.horario,
+  local: r.local,
+  professores: r.teachers.map((t) => t.member),
+  alunos: r.students.map((s) => ({ ...s.member, situacao: s.situacao, concluidoEm: toISOOpt(s.concluidoEm) })),
+})
+
+export const schoolLessonInclude = { presencas: { select: { memberId: true } } } as const
+
+export const toSchoolLesson = (r: P.SchoolLesson & { presencas: { memberId: string }[] }): SchoolLesson => ({
+  id: r.id,
+  turmaId: r.classId,
+  data: toISO(r.data),
+  tema: r.tema,
+  presentes: r.presencas.map((p) => p.memberId),
+})
+
+const professorDe = (user: P.ChurchUser): P.Prisma.SchoolClassWhereInput => ({
+  teachers: { some: { memberId: user.memberId ?? "-" } },
+})
+
+/** Turmas que o usuário vê: admin, secretaria e pastor, todas; os demais, só as que ensinam. */
+export function turmasVisiveis(user: P.ChurchUser): P.Prisma.SchoolClassWhereInput {
+  return ["admin", "secretaria", "pastor"].includes(user.papel) ? {} : professorDe(user)
+}
+
+/** Turmas em que o usuário lança aulas: quem cuida das escolas, todas; os demais (pastor inclusive), só as que ensinam. */
+export function turmasDoProfessor(user: P.ChurchUser): P.Prisma.SchoolClassWhereInput {
+  return canWrite(user.papel, "escolas") ? {} : professorDe(user)
+}
+
 export const userInclude = { congregation: { select: { nome: true } } } as const
 
 export const toUser = (r: P.ChurchUser & { congregation?: { nome: string } | null }): AppUser => ({
@@ -244,7 +296,10 @@ export async function loadAppData({ church, user }: Session): Promise<AppData> {
 
   const umAnoAtras = new Date(Date.now() - 365 * 86_400_000)
 
-  const [filiais, members, visits, transactions, events, certificates, cells, cellMeetings, cellStudies, users] = await Promise.all([
+  const turmas = { churchId, ...turmasVisiveis(user) }
+  const professorSo = Object.keys(turmasVisiveis(user)).length > 0
+
+  const [filiais, members, visits, transactions, events, certificates, cells, cellMeetings, cellStudies, schools, schoolClasses, schoolLessons, users] = await Promise.all([
     loadFiliais(church),
     db.member.findMany({ where: membrosWhere, include: memberInclude, orderBy: { nome: "asc" } }),
     pode("visitas") ? db.visit.findMany({ where: dosMembros, orderBy: { data: "desc" } }) : [],
@@ -262,6 +317,10 @@ export async function loadAppData({ church, user }: Session): Promise<AppData> {
         })
       : [],
     db.cellStudy.findMany({ where: { churchId, semana: { gte: umAnoAtras } }, orderBy: { semana: "desc" } }),
+    // O professor recebe só as escolas das turmas dele; quem vê todas as turmas, todas as escolas (até as sem turma).
+    db.school.findMany({ where: { churchId, ...(professorSo && { classes: { some: turmasVisiveis(user) } }) }, orderBy: { nome: "asc" } }),
+    db.schoolClass.findMany({ where: turmas, include: schoolClassInclude, orderBy: [{ inicio: "desc" }, { nome: "asc" }] }),
+    db.schoolLesson.findMany({ where: { churchId, class: turmasVisiveis(user) }, include: schoolLessonInclude, orderBy: { data: "desc" } }),
     admin ? db.churchUser.findMany({ where: { churchId }, include: userInclude, orderBy: { createdAt: "asc" } }) : [],
   ])
 
@@ -276,6 +335,9 @@ export async function loadAppData({ church, user }: Session): Promise<AppData> {
     cells: cells.map(toCell),
     cellMeetings: cellMeetings.map(toCellMeeting),
     cellStudies: cellStudies.map(toCellStudy),
+    schools: schools.map(toSchool),
+    schoolClasses: schoolClasses.map(toSchoolClass),
+    schoolLessons: schoolLessons.map(toSchoolLesson),
     users: users.map(toUser),
     whatsapp: toWhatsApp(church),
   }

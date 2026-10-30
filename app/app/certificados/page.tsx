@@ -86,12 +86,15 @@ function CertificadosContent() {
   const [pending, setPending] = React.useState(false)
   const nomes = React.useMemo(() => new Map(members.map((m) => [m.id, m.nome])), [members])
 
-  const [tipo, setTipo] = React.useState<string>(TIPOS_CERTIFICADO[0])
+  // Vindo de outra tela (ficha do membro, turma de uma escola), já abre com as pessoas e o modelo escolhidos.
+  const [tipo, setTipo] = React.useState<string>(() => TIPOS_CERTIFICADO.find((t) => t === params.get("tipo")) ?? TIPOS_CERTIFICADO[0])
   const [estilo, setEstilo] = React.useState<CertificateStyle>("classico")
-  const [detalhe, setDetalhe] = React.useState("")
+  const [detalhe, setDetalhe] = React.useState(params.get("detalhe") ?? "")
   const [data, setData] = React.useState(TODAY.toISOString().slice(0, 10))
   const [q, setQ] = React.useState("")
-  const [selected, setSelected] = React.useState<string[]>(params.get("membro") ? [params.get("membro")!] : [])
+  const [selected, setSelected] = React.useState<string[]>(() =>
+    (params.get("membros") ?? params.get("membro") ?? "").split(",").filter(Boolean)
+  )
 
   const lista = members
     .filter((m) => m.status !== "transferido" && m.nome.toLowerCase().includes(q.toLowerCase()))

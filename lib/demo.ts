@@ -7,12 +7,13 @@ import { seedCertificates, seedChurch, seedEvents, seedMembers, seedTransactions
 
 const date = (iso: string) => new Date(`${iso}T00:00:00Z`)
 
-/** Apaga estudos, células, membros, visitas, lançamentos, eventos, certificados e congregações da igreja. */
+/** Apaga escolas, estudos, células, membros, visitas, lançamentos, eventos, certificados e congregações da igreja. */
 export async function clearChurchData(tx: Prisma.TransactionClient, churchId: string) {
   const where = { churchId }
   // Quem tinha acesso só a uma filial fica desativado (as filiais vão ser apagadas): o admin reativa e
   // escolhe a filial de novo. Apagar o vínculo sem desativar daria acesso à igreja toda.
   await tx.churchUser.updateMany({ where: { churchId, congregationId: { not: null } }, data: { congregationId: null, ativo: false } })
+  await tx.school.deleteMany({ where })
   await tx.cell.deleteMany({ where })
   await tx.cellStudy.deleteMany({ where })
   await tx.visit.deleteMany({ where })
@@ -78,6 +79,7 @@ export async function insertDemoData(tx: Prisma.TransactionClient, churchId: str
   })
 
   await insertDemoCells(tx, churchId, (id) => memberId.get(id)!)
+  await insertDemoSchools(tx, churchId, (id) => memberId.get(id)!)
   await tx.cellStudy.createMany({ data: ESTUDOS.map(({ semana, ...e }) => ({ ...e, churchId, semana: date(semana) })) })
 }
 
@@ -202,6 +204,89 @@ async function insertDemoCells(tx: Prisma.TransactionClient, churchId: string, n
       })
       await tx.cellAttendance.createMany({
         data: membros.filter((_, j) => (j + s + i) % 4 !== 0).map((id) => ({ meetingId: meeting.id, memberId: novoId(id) })),
+      })
+    }
+  }
+}
+
+type Matricula = { situacao?: "concluido" | "desistiu"; concluidoEm?: Date }
+const cursando = (): Matricula => ({})
+
+const dias = (inicio: string, n: number) => Array.from({ length: n }, (_, i) => new Date(date(inicio).getTime() + i * 7 * 86_400_000))
+
+/**
+ * Escola de Batismo (uma turma encerrada e uma em andamento) e Escola de Discípulos, com aulas semanais
+ * até 24/10/2026 e quase todos presentes.
+ */
+async function insertDemoSchools(tx: Prisma.TransactionClient, churchId: string, novoId: (seedId: string) => string) {
+  const ativos = seedMembers.filter((m) => m.status === "ativo")
+  const professores = ativos.filter((m) => m.cargo !== "Membro" && m.nascimento <= "1990-01-01")
+  const naoBatizados = ativos.filter((m) => !m.batizado && m.nascimento <= "2014-01-01")
+  const batizados = ativos.filter((m) => m.batizado && m.nascimento <= "2004-01-01" && m.cargo === "Membro")
+
+  const turmas = [
+    {
+      escola: { nome: "Escola de Batismo", descricao: "Oito aulas para quem deseja ser batizado nas águas: fé, arrependimento, batismo e vida na igreja." },
+      nome: "Agosto/2026",
+      inicio: "2026-08-02",
+      horario: "Domingos, 9h",
+      local: "Sala 2 do templo",
+      professor: professores[0],
+      alunos: naoBatizados.slice(0, 6),
+      aulas: dias("2026-08-02", 8),
+      // Cinco concluíram; o último desistiu.
+      situacao: (i: number): Matricula => (i < 5 ? { situacao: "concluido", concluidoEm: date("2026-09-20") } : { situacao: "desistiu" }),
+    },
+    {
+      escola: { nome: "Escola de Batismo" },
+      nome: "Outubro/2026",
+      inicio: "2026-10-04",
+      horario: "Domingos, 9h",
+      local: "Sala 2 do templo",
+      professor: professores[0],
+      alunos: naoBatizados.slice(6, 14),
+      aulas: dias("2026-10-04", 3),
+      situacao: cursando,
+    },
+    {
+      escola: { nome: "Escola de Discípulos", descricao: "Fundamentos da vida cristã para novos convertidos e membros recém-chegados." },
+      nome: "Turma 2026",
+      inicio: "2026-08-05",
+      horario: "Quartas, 20h",
+      local: "Sala 1 do templo",
+      professor: professores[1],
+      alunos: batizados.slice(0, 10),
+      aulas: dias("2026-08-05", 12),
+      situacao: cursando,
+    },
+  ]
+
+  const escolas = new Map<string, string>()
+  for (const t of turmas) {
+    if (!t.professor || t.alunos.length === 0) continue
+    if (!escolas.has(t.escola.nome)) escolas.set(t.escola.nome, (await tx.school.create({ data: { ...t.escola, churchId } })).id)
+    const turma = await tx.schoolClass.create({
+      data: {
+        churchId,
+        schoolId: escolas.get(t.escola.nome)!,
+        nome: t.nome,
+        inicio: date(t.inicio),
+        horario: t.horario,
+        local: t.local,
+        teachers: { create: { memberId: novoId(t.professor.id) } },
+        students: { create: t.alunos.map((m, i) => ({ memberId: novoId(m.id), ...t.situacao(i) })) },
+      },
+    })
+    for (const [s, dia] of t.aulas.entries()) {
+      // Quem desistiu parou de vir na metade; os demais faltam de vez em quando.
+      const presentes = t.alunos.filter((_, i) => (i + s) % 6 !== 0 && !(t.situacao(i).situacao === "desistiu" && s >= t.aulas.length / 2))
+      await tx.schoolLesson.create({
+        data: {
+          churchId,
+          classId: turma.id,
+          data: dia,
+          presencas: { create: presentes.map((m) => ({ memberId: novoId(m.id) })) },
+        },
       })
     }
   }

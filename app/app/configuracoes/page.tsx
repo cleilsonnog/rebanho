@@ -310,6 +310,12 @@ function UsuariosTab() {
               <p className="text-xs text-muted-foreground">{ROLE_PERMISSIONS[r].join(" · ")}</p>
             </div>
           ))}
+          <div>
+            <p className="text-sm font-medium">Professor de turma</p>
+            <p className="text-xs text-muted-foreground">
+              Qualquer função lança a presença das turmas em que é professor, se o acesso estiver ligado ao cadastro de membro.
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -367,15 +373,16 @@ function DadosTab() {
   }
 
   async function carregarExemplo() {
-    if (!confirm("Isso APAGA todos os membros, células, visitas, lançamentos, eventos e certificados desta igreja e coloca dados de exemplo no lugar. Continuar?")) return
+    if (!confirm("Isso APAGA todos os membros, células, escolas, visitas, lançamentos, eventos e certificados desta igreja e coloca dados de exemplo no lugar. Continuar?")) return
     setCarregando(true)
     if (await notify(loadDemoData(), "Dados de exemplo carregados")) window.location.reload()
     else setCarregando(false)
   }
 
   function exportar() {
-    const { church, members, visits, transactions, events, certificates, cells, cellMeetings, cellStudies, users } = store.getState()
-    const dados = { church, members, visits, transactions, events, certificates, cells, cellMeetings, cellStudies, users }
+    const { church, members, visits, transactions, events, certificates, cells, cellMeetings, cellStudies, schools, schoolClasses, schoolLessons, users } =
+      store.getState()
+    const dados = { church, members, visits, transactions, events, certificates, cells, cellMeetings, cellStudies, schools, schoolClasses, schoolLessons, users }
     const blob = new Blob([JSON.stringify(dados, null, 2)], { type: "application/json" })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
@@ -402,7 +409,7 @@ function DadosTab() {
         <CardHeader>
           <CardTitle>Apagar dados</CardTitle>
           <CardDescription>
-            Apaga membros, células, estudos, visitas, financeiro, agenda e certificados, como os dados de exemplo. O cadastro
+            Apaga membros, células, estudos, escolas, visitas, financeiro, agenda e certificados, como os dados de exemplo. O cadastro
             da igreja, a logo e os usuários continuam. Não dá para desfazer: baixe o backup antes, se precisar.
           </CardDescription>
         </CardHeader>

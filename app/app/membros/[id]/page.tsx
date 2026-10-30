@@ -1,8 +1,9 @@
 "use client"
 
+import * as React from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
-import { ArrowLeft, Award, CalendarClock, HeartHandshake, IdCard, MapPin, MessageCircle, Pencil, Phone, Mail } from "lucide-react"
+import { ArrowLeft, Award, CalendarClock, GraduationCap, HeartHandshake, IdCard, MapPin, MessageCircle, Pencil, Phone, Mail } from "lucide-react"
 
 import { MemberAvatar, StatusBadge } from "@/components/app/member-avatar"
 import { Badge } from "@/components/ui/badge"
@@ -10,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { age, formatBRL, formatDate, whatsappLink } from "@/lib/format"
+import { SITUACAO_ALUNO_LABEL, age, formatBRL, formatDate, whatsappLink } from "@/lib/format"
 import { canRead, canWrite, memberScope } from "@/lib/permissions"
 import { useApp, useMember } from "@/lib/store"
 
@@ -32,6 +33,12 @@ export default function MembroPage() {
   const transactions = useApp((s) => s.transactions)
   const certificates = useApp((s) => s.certificates)
   const celula = useApp((s) => s.cells.find((c) => c.membroIds.includes(id)))
+  const schools = useApp((s) => s.schools)
+  const todasTurmas = useApp((s) => s.schoolClasses)
+  const escolas = React.useMemo(
+    () => todasTurmas.flatMap((t) => t.alunos.filter((a) => a.id === id).map((a) => ({ turma: t, aluno: a }))),
+    [todasTurmas, id]
+  )
   const podeEditar = useApp((s) => canWrite(s.me.papel, "membros"))
   const papel = useApp((s) => s.me.papel)
   const ve = (area: Parameters<typeof canRead>[1]) => canRead(papel, area)
@@ -104,6 +111,26 @@ export default function MembroPage() {
               <Info label="Célula">
                 {celula && <Link href={`/app/celulas/${celula.id}`} className="hover:underline">{celula.nome}</Link>}
               </Info>
+              {escolas.length > 0 && (
+                <div className="sm:col-span-3">
+                  <p className="mb-1.5 text-xs text-muted-foreground">Escolas</p>
+                  <div className="flex flex-wrap gap-2">
+                    {escolas.map(({ turma, aluno }) => (
+                      <Link
+                        key={turma.id}
+                        href={`/app/escolas/${turma.id}`}
+                        className="flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm hover:border-primary/50"
+                      >
+                        <GraduationCap className="size-4 text-primary" />
+                        <span className="font-medium">{schools.find((s) => s.id === turma.escolaId)?.nome}</span>
+                        <span className="text-muted-foreground">
+                          {turma.nome} · {aluno.situacao === "concluido" && aluno.concluidoEm ? `concluiu em ${formatDate(aluno.concluidoEm)}` : SITUACAO_ALUNO_LABEL[aluno.situacao].toLowerCase()}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
               {m.observacoes && (
                 <div className="sm:col-span-3">
                   <p className="text-xs text-muted-foreground">Observações</p>

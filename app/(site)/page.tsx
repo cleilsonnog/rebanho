@@ -57,6 +57,7 @@ const planoItens = [
   "Carteirinha com QR Code",
   "Mapa interativo de membros",
   "Células com presença, visitantes e estudo da semana",
+  "Escolas (batismo, discipulado) com turmas e presença",
   "Sede e filiais com acesso separado por filial",
   "Certificados em lote",
   "Módulo financeiro completo",

@@ -171,6 +171,34 @@ export interface WhatsAppSettings {
 }
 
 /** Tudo o que o painel precisa, carregado do banco no servidor para a igreja ativa. */
+export interface School {
+  id: string
+  nome: string
+  descricao: string
+}
+
+export type SituacaoAluno = "cursando" | "concluido" | "desistiu"
+
+/** Pessoas da turma vêm com o nome: o professor nem sempre recebe o cadastro de membro delas. */
+export interface SchoolClass {
+  id: string
+  escolaId: string
+  nome: string
+  inicio?: string
+  horario: string
+  local: string
+  professores: { id: string; nome: string }[]
+  alunos: { id: string; nome: string; situacao: SituacaoAluno; concluidoEm?: string }[]
+}
+
+export interface SchoolLesson {
+  id: string
+  turmaId: string
+  data: string
+  tema: string
+  presentes: string[]
+}
+
 export interface AppData {
   me: AppUser
   church: Church
@@ -184,6 +212,10 @@ export interface AppData {
   cellMeetings: CellMeeting[]
   /** Estudos da semana dos últimos 12 meses e os já programados. */
   cellStudies: CellStudy[]
+  schools: School[]
+  /** Todas as turmas, ou só as que o usuário ensina (lib/data.ts › turmasVisiveis). */
+  schoolClasses: SchoolClass[]
+  schoolLessons: SchoolLesson[]
   users: AppUser[]
   whatsapp: WhatsAppSettings
 }
