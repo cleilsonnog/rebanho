@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useClerk } from "@clerk/nextjs"
-import { Award, LogOut, Printer, RotateCcw } from "lucide-react"
+import { Award, Download, LogOut, Printer, RotateCcw, Share } from "lucide-react"
 
 import { Certificate } from "@/components/app/certificate"
 import { MemberCardBack, MemberCardFront } from "@/components/app/member-card"
@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { formatDate } from "@/lib/format"
 import type { Church, IssuedCertificate, Member } from "@/lib/types"
 
-// Partes do portal do membro que precisam do navegador: sair, virar a carteirinha e imprimir certificados.
+// Partes do portal do membro que precisam do navegador: sair, instalar, virar a carteirinha e imprimir certificados.
 
 export function SairButton({ className }: { className?: string }) {
   const { signOut } = useClerk()
@@ -73,4 +73,57 @@ export function Certificados({ m, church, certificados }: { m: Member; church: C
       </Dialog>
     </>
   )
+}
+
+type PedidoInstalacao = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> }
+
+const nada = () => () => {}
+/** iPhone/iPad no navegador (não instalado): o Safari não tem pedido de instalação, só o menu Compartilhar. */
+const iphoneSemApp = () =>
+  /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.matchMedia("(display-mode: standalone)").matches
+
+/** Convida a instalar o portal na tela inicial. Some quando já está instalado ou o navegador não permite. */
+export function InstalarApp() {
+  const [pedido, setPedido] = React.useState<PedidoInstalacao | null>(null)
+  const iphone = React.useSyncExternalStore(nada, iphoneSemApp, () => false)
+
+  React.useEffect(() => {
+    const guardar = (e: Event) => {
+      e.preventDefault()
+      setPedido(e as PedidoInstalacao)
+    }
+    const instalado = () => setPedido(null)
+    window.addEventListener("beforeinstallprompt", guardar)
+    window.addEventListener("appinstalled", instalado)
+    return () => {
+      window.removeEventListener("beforeinstallprompt", guardar)
+      window.removeEventListener("appinstalled", instalado)
+    }
+  }, [])
+
+  if (pedido)
+    return (
+      <div className="flex items-center gap-3 rounded-xl border bg-background p-3 text-sm">
+        <Download className="size-5 shrink-0 text-primary" />
+        <p className="flex-1">Coloque o portal na tela inicial do celular, como um aplicativo.</p>
+        <Button
+          size="sm"
+          onClick={async () => {
+            await pedido.prompt()
+            await pedido.userChoice
+            setPedido(null)
+          }}
+        >
+          Instalar
+        </Button>
+      </div>
+    )
+  if (iphone)
+    return (
+      <div className="flex items-center gap-3 rounded-xl border bg-background p-3 text-sm">
+        <Share className="size-5 shrink-0 text-primary" />
+        <p>Para ter o portal na tela inicial: toque em <strong>Compartilhar</strong> e depois em <strong>Adicionar à Tela de Início</strong>.</p>
+      </div>
+    )
+  return null
 }

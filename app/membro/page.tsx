@@ -1,4 +1,4 @@
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import Link from "next/link"
 import { headers } from "next/headers"
 import { redirect } from "next/navigation"
@@ -7,7 +7,7 @@ import { CalendarDays, CircleAlert, GraduationCap, HeartHandshake, IdCard, UserR
 
 import { Logo, LogoMark } from "@/components/brand"
 import { LogoImg } from "@/components/app/church-logo"
-import { Carteirinha, Certificados, SairButton } from "@/components/portal/portal-client"
+import { Carteirinha, Certificados, InstalarApp, SairButton } from "@/components/portal/portal-client"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PARENTESCO_LABEL, SITUACAO_ALUNO_LABEL, STATUS_LABEL, cellSchedule, formatDate } from "@/lib/format"
@@ -15,7 +15,15 @@ import { db } from "@/lib/db"
 import { carregarPortal, emailsDoLogin, resolverAcesso } from "@/lib/portal"
 import { cn } from "@/lib/utils"
 
-export const metadata: Metadata = { title: "Portal do membro", robots: { index: false } }
+export const metadata: Metadata = {
+  title: "Portal do membro",
+  robots: { index: false },
+  // Instalável no celular (PWA): o manifest é só do portal.
+  manifest: "/membro/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "Minha igreja", statusBarStyle: "default" },
+}
+
+export const viewport: Viewport = { themeColor: "#5f3cc5" }
 
 const ESTADO_CIVIL = { solteiro: "Solteiro(a)", casado: "Casado(a)", divorciado: "Divorciado(a)", viuvo: "Viúvo(a)" }
 
@@ -119,6 +127,8 @@ export default async function PortalPage({ searchParams }: { searchParams: Promi
             ))}
           </nav>
         )}
+
+        <InstalarApp />
 
         <div>
           <h1 className="font-heading text-2xl font-semibold">Olá, {m.nome.split(" ")[0]}!</h1>
