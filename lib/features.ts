@@ -2,12 +2,15 @@ import {
   Award,
   Cake,
   Camera,
+  GraduationCap,
   HandCoins,
   HeartHandshake,
   House,
   IdCard,
   MapPinned,
+  Smartphone,
   Users,
+  UsersRound,
   type LucideIcon,
 } from "lucide-react"
 
@@ -19,6 +22,8 @@ export interface Feature {
   description: string
   bullets: string[]
   appHref: string
+  /** Texto do botão que abre `appHref` (padrão: "Ver na demonstração"). */
+  appLabel?: string
 }
 
 export const FEATURES: Feature[] = [
@@ -30,6 +35,16 @@ export const FEATURES: Feature[] = [
     description:
       "Cada pessoa tem uma ficha única com dados pessoais, família, endereço, batismo, cargos e ministérios. Visitantes, membros e líderes ficam no mesmo lugar, com filtros que respondem em segundos.",
     bullets: ["Membros ilimitados", "Filtros por congregação, cargo e situação", "Histórico de visitas na ficha", "Exportação para planilha"],
+    appHref: "/app/membros",
+  },
+  {
+    slug: "familias",
+    icon: UsersRound,
+    title: "Famílias",
+    short: "Casal, filhos e parentes ligados, com o mesmo endereço.",
+    description:
+      "Ligue casal, filhos e outros parentes numa família, com o parentesco de cada um. Na ficha de qualquer pessoa aparecem os familiares, a lista de membros filtra por família e, quando a família muda de casa, o endereço novo vai para todos de uma vez.",
+    bullets: ["Responsável, cônjuge, filhos e outros parentes", "Endereço copiado para a família toda", "Filtro e busca por família", "Pais acompanham os filhos no portal do membro"],
     appHref: "/app/membros",
   },
   {
@@ -83,6 +98,22 @@ export const FEATURES: Feature[] = [
     appHref: "/app/carteirinhas",
   },
   {
+    slug: "portal-do-membro",
+    icon: Smartphone,
+    title: "Portal do membro",
+    short: "Cada membro vê a carteirinha, a célula e as escolas no celular.",
+    description:
+      "A secretaria libera e o membro entra com o próprio e-mail ou com a conta Google, sem senha da igreja para decorar. No celular ele tem a carteirinha com QR Code, os próprios dados, a célula com a sua presença, as escolas e certificados e a agenda da igreja. Pais acompanham os filhos menores. Se algum dado estiver errado, o membro pede a correção e a secretaria só confere e aprova.",
+    bullets: [
+      "Carteirinha digital sempre no bolso",
+      "Instala na tela inicial como um aplicativo",
+      "Pedido de correção de dados, aprovado pela secretaria",
+      "Nada de dízimos nem de dados de outras pessoas",
+    ],
+    appHref: "/membro/entrar",
+    appLabel: "Abrir o portal",
+  },
+  {
     slug: "mapa-de-membros",
     icon: MapPinned,
     title: "Mapa de membros",
@@ -106,6 +137,16 @@ export const FEATURES: Feature[] = [
       "Casa do anfitrião no mapa",
     ],
     appHref: "/app/celulas",
+  },
+  {
+    slug: "escolas",
+    icon: GraduationCap,
+    title: "Escolas",
+    short: "Escola de batismo, discipulado e outras, com turmas e presença.",
+    description:
+      "A secretaria cria as escolas da igreja e as turmas, com professores e alunos. O professor lança a presença de cada aula pelo celular, só nas turmas dele. Quem concluiu aparece na ficha do membro e o certificado de conclusão já sai preenchido.",
+    bullets: ["Turmas com professores e alunos", "Presença de cada aula pelo professor", "Situação: cursando, concluiu ou desistiu", "Certificado de conclusão em lote"],
+    appHref: "/app/escolas",
   },
   {
     slug: "visitas-pastorais",

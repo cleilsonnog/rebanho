@@ -5,7 +5,11 @@ import {
   CalendarDays,
   Check,
   CloudUpload,
+  Download,
   FileSpreadsheet,
+  GraduationCap,
+  HeartHandshake,
+  IdCard,
   KeyRound,
   Lock,
   MessageCircle,
@@ -44,6 +48,13 @@ const recursos = [
   { icon: CloudUpload, title: "Backup semanal", text: "Uma cópia de tudo toda semana, guardada por um mês." },
 ]
 
+const portalItens = [
+  { icon: IdCard, text: "Carteirinha digital com QR Code, sempre no bolso" },
+  { icon: HeartHandshake, text: "A célula, os líderes e a própria presença nas reuniões" },
+  { icon: GraduationCap, text: "Escolas, presença nas aulas e certificados para baixar" },
+  { icon: CalendarDays, text: "Agenda da igreja e, se a igreja quiser, os aniversariantes do mês" },
+]
+
 const depoimentos = [
   { nome: "Pr. Roberto Siqueira", igreja: "Igreja Batista Esperança", texto: "Em uma semana a secretaria importou 600 fichas antigas. Hoje eu abro o celular e sei quem precisa de visita." },
   { nome: "Dc. Helena Prado", igreja: "Comunidade Vida Nova", texto: "A prestação de contas na assembleia ficou simples. Os gráficos já saem prontos para mostrar." },
@@ -55,7 +66,7 @@ const planoItens = [
   "Controle de visitantes e visitas pastorais",
   "Aniversários automáticos no WhatsApp",
   "Carteirinha com QR Code",
-  "Portal do membro: carteirinha, célula e escolas no celular",
+  "Portal do membro instalável no celular",
   "Mapa interativo de membros",
   "Células com presença, visitantes e estudo da semana",
   "Escolas (batismo, discipulado) com turmas e presença",
@@ -69,7 +80,8 @@ const planoItens = [
 
 const faq = [
   ["Consigo emitir certificados?", "Sim. Há modelos de batismo, apresentação de criança, curso, congresso, membresia e casamento, em três estilos. Você pode imprimir ou salvar em PDF, um por vez ou em lote."],
-  ["Tem aplicativo para celular?", "O Rebanho funciona no navegador do celular, sem instalar nada, e pode ser adicionado à tela inicial como um aplicativo."],
+  ["Tem aplicativo para celular?", "O Rebanho funciona no navegador do celular, sem baixar nada da loja. O portal do membro pode ser instalado na tela inicial como um aplicativo, no Android e no iPhone."],
+  ["Os membros podem acessar?", "Sim, pelo portal do membro. A secretaria libera o acesso de cada pessoa (ou de todas com e-mail de uma vez) e o membro entra com o próprio e-mail ou a conta Google. Ele vê a carteirinha, os próprios dados, a célula, as escolas e a agenda, e pode pedir a correção de algum dado. Não vê dízimos nem dados de outras pessoas, e a secretaria pode cortar o acesso a qualquer momento."],
   ["Já tenho uma lista de membros. Posso importar?", "Pode. Envie uma planilha (CSV ou Excel exportado em CSV) ou fotografe as fichas de papel. Você revisa os dados antes de salvar."],
   ["Quantos membros posso cadastrar?", "Quantos quiser. Todos os planos têm membros ilimitados."],
   ["Preciso pagar para testar?", "Não. São 14 dias grátis, sem cartão de crédito. Os dados de pagamento só são pedidos se você decidir continuar."],
@@ -176,7 +188,7 @@ export default function LandingPage() {
       {/* Funcionalidades principais */}
       <section className="mx-auto max-w-6xl px-4 pb-20">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-semibold md:text-4xl">Tudo o que a secretaria, a tesouraria, o pastor e os líderes de célula usam</h2>
+          <h2 className="text-3xl font-semibold md:text-4xl">Tudo o que a secretaria, a tesouraria, o pastor, os líderes e os membros usam</h2>
         </div>
         <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((f) => (
@@ -203,6 +215,63 @@ export default function LandingPage() {
               </div>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Portal do membro */}
+      <section className="border-y bg-muted/30">
+        <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-20 md:grid-cols-[1.1fr_1fr]">
+          <div>
+            <Badge className="mb-4">Novo</Badge>
+            <h2 className="text-3xl font-semibold text-balance md:text-4xl">E o membro também tem o Rebanho no celular.</h2>
+            <p className="mt-4 text-muted-foreground">
+              A secretaria libera o portal e cada membro entra com o próprio e-mail ou a conta Google, sem senha da igreja para
+              decorar. Ele instala na tela inicial como um aplicativo e vê só o que é dele.
+            </p>
+            <ul className="mt-6 space-y-3">
+              {portalItens.map((i) => (
+                <li key={i.text} className="flex gap-3 text-sm">
+                  <i.icon className="mt-0.5 size-5 shrink-0 text-primary" /> {i.text}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-6 text-sm text-muted-foreground">
+              Dado errado no cadastro? O membro pede a correção pelo portal e a secretaria só confere e aprova. Pais acompanham os
+              filhos menores. Dízimos, ofertas e dados de outras pessoas nunca aparecem.
+            </p>
+            <Button className="mt-6" variant="secondary" asChild>
+              <Link href="/funcionalidades/portal-do-membro">Conheça o portal do membro <ArrowRight /></Link>
+            </Button>
+          </div>
+
+          {/* Celular ilustrativo com a tela do portal */}
+          <div aria-hidden className="mx-auto w-full max-w-[300px] rounded-[2.5rem] border-[10px] border-foreground/90 bg-background p-3 shadow-2xl">
+            <div className="mx-auto mb-3 h-1.5 w-16 rounded-full bg-foreground/20" />
+            <p className="text-[11px] text-muted-foreground">Portal do membro</p>
+            <p className="font-heading text-lg font-semibold">Olá, Maria!</p>
+            <div className="mt-3 rounded-xl bg-linear-to-br from-[#5b2fc4] to-[#3a1d86] p-3 text-white">
+              <p className="text-[9px] tracking-widest uppercase opacity-70">Carteira de membro</p>
+              <p className="text-sm font-semibold">Maria Souza</p>
+              <p className="text-[10px] opacity-80">Membro desde 2015 · Ativa</p>
+              <div className="mt-2 ml-auto size-9 rounded bg-white/90" />
+            </div>
+            {[
+              { icon: HeartHandshake, t: "Célula Betel", d: "Quinta · 20h · 9 de 10 reuniões" },
+              { icon: GraduationCap, t: "Escola de Batismo", d: "Concluiu · certificado" },
+              { icon: CalendarDays, t: "Culto de Celebração", d: "Domingo · 19h" },
+            ].map((r) => (
+              <div key={r.t} className="mt-2 flex items-center gap-2 rounded-lg border p-2">
+                <r.icon className="size-4 shrink-0 text-primary" />
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-medium">{r.t}</p>
+                  <p className="truncate text-[10px] text-muted-foreground">{r.d}</p>
+                </div>
+              </div>
+            ))}
+            <div className="mt-3 flex items-center justify-center gap-1.5 rounded-lg bg-primary/10 py-2 text-[11px] font-medium text-primary">
+              <Download className="size-3.5" /> Instalar na tela inicial
+            </div>
+          </div>
         </div>
       </section>
 

@@ -37,7 +37,7 @@ export default async function FeaturePage({ params }: { params: Promise<{ slug: 
           <p className="mt-6 text-lg text-muted-foreground">{feature.description}</p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button size="lg" asChild><Link href="/criar-conta">Testar grátis por 14 dias <ArrowRight /></Link></Button>
-            <Button size="lg" variant="outline" asChild><Link href={feature.appHref}>Ver na demonstração</Link></Button>
+            <Button size="lg" variant="outline" asChild><Link href={feature.appHref}>{feature.appLabel ?? "Ver na demonstração"}</Link></Button>
           </div>
         </div>
         <Card className="self-start">
