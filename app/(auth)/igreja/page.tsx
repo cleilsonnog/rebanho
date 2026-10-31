@@ -10,7 +10,7 @@ import { emailsDoLogin, resolverAcesso } from "@/lib/portal"
 
 export const metadata: Metadata = { title: "Sua igreja" }
 
-export default async function IgrejaPage({ searchParams }: { searchParams: Promise<{ painel?: string }> }) {
+export default async function IgrejaPage() {
   const { userId } = await auth({ treatPendingAsSignedOut: false })
   if (!userId) redirect("/entrar")
 
@@ -19,7 +19,7 @@ export default async function IgrejaPage({ searchParams }: { searchParams: Promi
   const acesso = await resolverAcesso((await emailsDoLogin()) ?? [])
   const temPortal = acesso.tipo !== "sem-acesso"
   const daEquipe = (await db.churchUser.count({ where: { clerkUserId: userId } })) > 0
-  if (temPortal && !daEquipe && !(await searchParams).painel) redirect("/membro")
+  if (temPortal && !daEquipe) redirect("/membro")
 
   return (
     <>

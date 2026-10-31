@@ -11,6 +11,7 @@ import { Carteirinha, Certificados, SairButton } from "@/components/portal/porta
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PARENTESCO_LABEL, SITUACAO_ALUNO_LABEL, STATUS_LABEL, cellSchedule, formatDate } from "@/lib/format"
+import { db } from "@/lib/db"
 import { carregarPortal, emailsDoLogin, resolverAcesso } from "@/lib/portal"
 import { cn } from "@/lib/utils"
 
@@ -81,6 +82,7 @@ export default async function PortalPage({ searchParams }: { searchParams: Promi
 
   const pessoa = acesso.visiveis.find((v) => v.id === ver) ?? acesso.visiveis[0]
   const { church, membro: m, celula, escolas, certificados, eventos } = await carregarPortal(acesso.churchId, pessoa.id)
+  const daEquipe = (await db.churchUser.count({ where: { clerkUserId: userId, ativo: true } })) > 0
   const h = await headers()
   const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`
   const link = (id: string) => `/membro?${new URLSearchParams({ ...(igreja && { igreja }), ver: id })}`
@@ -221,9 +223,12 @@ export default async function PortalPage({ searchParams }: { searchParams: Promi
           </CardContent>
         </Card>
 
-        <p className="pt-2 text-center text-xs text-muted-foreground">
-          Faz parte da equipe ou quer cadastrar uma igreja? <Link href="/igreja?painel=1" className="hover:underline">Ir para o painel</Link>
-        </p>
+        {/* Só para quem também é da equipe de alguma igreja (secretaria, pastor…); o membro comum não vê. */}
+        {daEquipe && (
+          <p className="pt-2 text-center text-xs text-muted-foreground">
+            Você também faz parte da equipe. <Link href="/app" className="hover:underline">Ir para o painel da igreja</Link>
+          </p>
+        )}
       </main>
     </div>
   )
