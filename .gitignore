@@ -44,3 +44,6 @@ next-env.d.ts
 
 #tarefas
 tasks.md
+
+# documentação interna (planos e procedimentos)
+/docs/

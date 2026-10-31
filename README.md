@@ -90,11 +90,3 @@ A função fica no banco, e não nos papéis do Clerk, porque papéis customizad
 Quem cria a igreja vira administrador; convidados entram com a função escolhida no convite.
 
 Uma igreja nova começa vazia. Para testar, use **Configurações › Dados › Carregar dados de exemplo**.
-
-## Próximos passos
-
-1. Geocodificação dos endereços (BrasilAPI, com Nominatim de reserva).
-2. Importação de fichas por foto com a API da Claude.
-3. WhatsApp via Evolution API.
-
-Os detalhes e as decisões estão em [docs/plano.md](docs/plano.md).

@@ -3,7 +3,7 @@ import "server-only"
 // Backup semanal do banco: uma branch da Neon criada a partir da principal guarda o estado daquele momento.
 // É instantânea, não tem servidor próprio (não gasta horas de computação) e só ocupa espaço com o que mudar
 // depois. O plano Free da Neon só volta 6 horas no tempo e não agenda snapshots, por isso fazemos assim.
-// Como restaurar: docs/backup.md.
+// Como restaurar: docs/backup.md (documentação interna, fora do Git).
 
 const API = "https://console.neon.tech/api/v2"
 const PREFIXO = "backup-"
