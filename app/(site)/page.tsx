@@ -43,7 +43,7 @@ const recursos = [
   { icon: BarChart3, title: "Demografia", text: "Faixa etária, batismos, cargos e crescimento." },
   { icon: Search, title: "Busca instantânea", text: "Encontre qualquer informação em segundos." },
   { icon: KeyRound, title: "Níveis de acesso", text: "Cada função e cada filial vê só o que precisa." },
-  { icon: CalendarDays, title: "Agenda da igreja", text: "Cultos, reuniões e escalas em um só lugar." },
+  { icon: CalendarDays, title: "Agenda da igreja", text: "Cultos, reuniões e eventos em um só lugar." },
   { icon: Smartphone, title: "100% online", text: "Funciona no computador e no celular." },
   { icon: CloudUpload, title: "Backup semanal", text: "Uma cópia de tudo toda semana, guardada por um mês." },
 ]
