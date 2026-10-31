@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { Download, KeyRound, MoreHorizontal, Search, Upload, UserPlus } from "lucide-react"
 import { toast } from "sonner"
 
+import { CorrecoesPendentes } from "@/components/app/correcoes"
 import { MemberAvatar, StatusBadge } from "@/components/app/member-avatar"
 import { PageHeader } from "@/components/app/page-header"
 import { Button } from "@/components/ui/button"
@@ -121,6 +122,8 @@ export default function MembrosPage() {
         {pode && <Button variant="outline" onClick={liberarPortal}><KeyRound /> Liberar portal</Button>}
         {pode && <Button asChild><Link href="/app/membros/novo"><UserPlus /> Novo membro</Link></Button>}
       </PageHeader>
+
+      <CorrecoesPendentes />
 
       <Card className="gap-0 p-0">
         <div className="flex flex-col gap-2 border-b p-4 lg:flex-row">

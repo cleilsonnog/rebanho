@@ -261,6 +261,7 @@ export const seedChurch: Church = {
   filiais: [],
   lat: -16.7063,
   lng: -49.2725,
+  portal: { aniversariantes: true, colegasCelula: true },
 }
 
 export const seedUsers: AppUser[] = [

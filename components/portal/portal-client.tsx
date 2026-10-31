@@ -1,17 +1,26 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { useClerk } from "@clerk/nextjs"
-import { Award, Download, LogOut, Printer, RotateCcw, Share } from "lucide-react"
+import { Award, Download, LogOut, PenLine, Printer, RotateCcw, Share } from "lucide-react"
+import { toast } from "sonner"
 
 import { Certificate } from "@/components/app/certificate"
 import { MemberCardBack, MemberCardFront } from "@/components/app/member-card"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { useFormAction } from "@/hooks/use-form-action"
+import { requestCorrection } from "@/lib/actions/portal-member"
 import { formatDate } from "@/lib/format"
-import type { Church, IssuedCertificate, Member } from "@/lib/types"
+import type { Church, Endereco, IssuedCertificate, Member } from "@/lib/types"
+import { correctionSchema } from "@/lib/validations"
 
-// Partes do portal do membro que precisam do navegador: sair, instalar, virar a carteirinha e imprimir certificados.
+// Partes do portal do membro que precisam do navegador: sair, instalar, virar a carteirinha, imprimir certificados
+// e pedir correção dos dados.
 
 export function SairButton({ className }: { className?: string }) {
   const { signOut } = useClerk()
@@ -126,4 +135,96 @@ export function InstalarApp() {
       </div>
     )
   return null
+}
+
+const CAMPOS_ENDERECO: { k: keyof Endereco; label: string; className?: string }[] = [
+  { k: "rua", label: "Rua", className: "col-span-2" },
+  { k: "numero", label: "Número" },
+  { k: "cep", label: "CEP" },
+  { k: "bairro", label: "Bairro", className: "col-span-2" },
+  { k: "cidade", label: "Cidade" },
+  { k: "uf", label: "UF" },
+]
+
+/** O membro pede para corrigir contato e endereço (ou descreve outra correção); a secretaria aprova ou recusa. */
+export function PedirCorrecao({ m, igrejaId, pendente }: { m: Member; igrejaId?: string; pendente?: string }) {
+  const router = useRouter()
+  const [open, setOpen] = React.useState(false)
+  const { errors, pending, submit, invalid } = useFormAction()
+  const inicial = () => ({ membroId: m.id, telefone: m.telefone, email: m.email, endereco: { ...m.endereco }, observacao: "", igrejaId })
+  const [d, setD] = React.useState(inicial)
+
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    submit(correctionSchema, d, () => requestCorrection(d), (r) => {
+      if (!r.enviado) return toast.info("Nada mudou. Altere algum dado ou descreva a correção.")
+      toast.success("Pedido enviado. A secretaria vai conferir e atualizar o seu cadastro.")
+      setOpen(false)
+      router.refresh()
+    })
+  }
+
+  return (
+    <>
+      <div className="col-span-2 flex flex-wrap items-center justify-between gap-2 border-t pt-3">
+        <p className="text-xs text-muted-foreground">
+          {pendente ? `Pedido de correção enviado em ${formatDate(pendente.slice(0, 10))}, esperando a secretaria.` : "Algum dado errado ou desatualizado?"}
+        </p>
+        <Button size="sm" variant="outline" onClick={() => { setD(inicial()); setOpen(true) }}>
+          <PenLine /> {pendente ? "Mudar o pedido" : "Pedir correção"}
+        </Button>
+      </div>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[92vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Pedir correção</DialogTitle>
+            <DialogDescription>Altere o que estiver errado. A secretaria confere antes de mudar o seu cadastro.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={onSubmit} noValidate>
+            <FieldGroup className="grid grid-cols-2 gap-3">
+              <Field className="col-span-2">
+                <FieldLabel htmlFor="c-tel">Telefone</FieldLabel>
+                <Input {...invalid("telefone")} id="c-tel" inputMode="tel" value={d.telefone} onChange={(e) => setD({ ...d, telefone: e.target.value })} />
+                <FieldError>{errors.telefone}</FieldError>
+              </Field>
+              <Field className="col-span-2">
+                <FieldLabel htmlFor="c-email">E-mail</FieldLabel>
+                <Input {...invalid("email")} id="c-email" type="email" value={d.email} onChange={(e) => setD({ ...d, email: e.target.value })} />
+                <FieldError>{errors.email}</FieldError>
+              </Field>
+              {CAMPOS_ENDERECO.map(({ k, label, className }) => (
+                <Field key={k} className={className}>
+                  <FieldLabel htmlFor={`c-${k}`}>{label}</FieldLabel>
+                  <Input
+                    {...invalid(`endereco.${k}`)}
+                    id={`c-${k}`}
+                    value={d.endereco[k]}
+                    onChange={(e) => setD({ ...d, endereco: { ...d.endereco, [k]: k === "uf" ? e.target.value.toUpperCase() : e.target.value } })}
+                  />
+                  <FieldError>{errors[`endereco.${k}`]}</FieldError>
+                </Field>
+              ))}
+              <Field className="col-span-2">
+                <FieldLabel htmlFor="c-obs">Outra correção</FieldLabel>
+                <Textarea
+                  {...invalid("observacao")}
+                  id="c-obs"
+                  rows={3}
+                  placeholder="Ex.: minha data de batismo está errada, foi em 12/03/2015."
+                  value={d.observacao}
+                  onChange={(e) => setD({ ...d, observacao: e.target.value })}
+                />
+                <FieldError>{errors.observacao}</FieldError>
+              </Field>
+            </FieldGroup>
+            <p className="mt-3 text-xs text-muted-foreground">Se mudar o e-mail, o novo passa a ser o do seu login no portal quando a secretaria aprovar.</p>
+            <DialogFooter className="mt-4">
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+              <Button type="submit" disabled={pending}>{pending ? "Enviando…" : "Enviar pedido"}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
 }

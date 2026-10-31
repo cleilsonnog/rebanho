@@ -172,6 +172,19 @@ export interface Church {
   lat: number
   lng: number
   logoUrl?: string
+  /** O que o portal do membro mostra além da própria pessoa (só nomes). */
+  portal: { aniversariantes: boolean; colegasCelula: boolean }
+}
+
+/** Correção de cadastro pedida pelo membro no portal; só os campos que ele mudou vêm preenchidos. */
+export interface MemberCorrection {
+  id: string
+  membroId: string
+  telefone?: string
+  email?: string
+  endereco?: Endereco
+  observacao: string
+  criadoEm: string
 }
 
 export interface WhatsAppSettings {
@@ -224,6 +237,8 @@ export interface AppData {
   cellMeetings: CellMeeting[]
   /** Estudos da semana dos últimos 12 meses e os já programados. */
   cellStudies: CellStudy[]
+  /** Correções pedidas no portal e ainda não resolvidas; só para quem pode editar membros. */
+  correcoes: MemberCorrection[]
   /** Famílias com pelo menos um membro que o usuário vê. */
   families: Family[]
   schools: School[]

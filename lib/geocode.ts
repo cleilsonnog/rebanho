@@ -102,4 +102,18 @@ export function aproximar(centro: Ponto | null | undefined): Ponto {
   return { lat: centro.lat + (Math.random() - 0.5) * 0.008, lng: centro.lng + (Math.random() - 0.5) * 0.008 }
 }
 
+/**
+ * Posição do membro no mapa, calculada no servidor: centro do bairro com desvio, nunca a casa. Se o bairro não
+ * mudou, o pino fica onde estava.
+ */
+export async function posicaoDoMembro(
+  e: Pick<Endereco, "bairro" | "cidade" | "uf">,
+  atual?: { bairro: string; cidade: string; uf: string; lat: number | null; lng: number | null }
+) {
+  if (atual?.lat && atual.lng && chaveBairro(atual) === chaveBairro(e)) return { lat: atual.lat, lng: atual.lng }
+  if (!e.bairro || !e.cidade) return aproximar(null)
+  const guardado = (await bairrosGuardados([chaveBairro(e)])).get(chaveBairro(e))
+  return aproximar(guardado !== undefined ? guardado : await consultarBairro(e))
+}
+
 export const espera = (ms: number) => new Promise((r) => setTimeout(r, ms))

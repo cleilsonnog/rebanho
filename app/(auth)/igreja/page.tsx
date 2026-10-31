@@ -6,7 +6,8 @@ import { OrganizationList } from "@clerk/nextjs"
 import { auth } from "@clerk/nextjs/server"
 
 import { db } from "@/lib/db"
-import { emailsDoLogin, resolverAcesso } from "@/lib/portal"
+import { resolverAcesso } from "@/lib/portal"
+import { loginDoPortal } from "@/lib/portal-login"
 
 export const metadata: Metadata = { title: "Sua igreja" }
 
@@ -16,7 +17,7 @@ export default async function IgrejaPage() {
 
   // O Clerk manda para cá quem entrou sem igreja escolhida, inclusive o membro do portal (que não faz parte da
   // organização). Quem não é da equipe de nenhuma igreja e tem o portal liberado vai direto para o portal.
-  const acesso = await resolverAcesso((await emailsDoLogin()) ?? [])
+  const acesso = await resolverAcesso((await loginDoPortal())?.emails ?? [])
   const temPortal = acesso.tipo !== "sem-acesso"
   const daEquipe = (await db.churchUser.count({ where: { clerkUserId: userId } })) > 0
   if (temPortal && !daEquipe) redirect("/membro")

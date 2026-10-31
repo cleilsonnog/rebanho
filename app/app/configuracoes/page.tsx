@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { ChurchLogo } from "@/components/app/church-logo"
 import { FiliaisSettings } from "@/components/app/filiais-settings"
 import { HistoricoSettings } from "@/components/app/historico"
+import { PortalSettings } from "@/components/app/portal-settings"
 import { PinPicker } from "@/components/app/pin-picker"
 import { PageHeader } from "@/components/app/page-header"
 import { MemberAvatar } from "@/components/app/member-avatar"
@@ -455,6 +456,7 @@ export default function ConfiguracoesPage() {
           <TabsTrigger value="igreja">Igreja</TabsTrigger>
           <TabsTrigger value="filiais">Filiais</TabsTrigger>
           <TabsTrigger value="usuarios">Usuários e acesso</TabsTrigger>
+          <TabsTrigger value="portal">Portal do membro</TabsTrigger>
           <TabsTrigger value="historico">Histórico</TabsTrigger>
           <TabsTrigger value="plano">Plano</TabsTrigger>
           <TabsTrigger value="dados">Dados</TabsTrigger>
@@ -462,6 +464,7 @@ export default function ConfiguracoesPage() {
         <TabsContent value="igreja"><IgrejaTab /></TabsContent>
         <TabsContent value="filiais" className="mt-4"><FiliaisSettings /></TabsContent>
         <TabsContent value="usuarios"><UsuariosTab /></TabsContent>
+        <TabsContent value="portal" className="mt-4"><PortalSettings /></TabsContent>
         <TabsContent value="historico" className="mt-4"><HistoricoSettings /></TabsContent>
         <TabsContent value="plano"><PlanoTab /></TabsContent>
         <TabsContent value="dados"><DadosTab /></TabsContent>

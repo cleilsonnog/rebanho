@@ -35,6 +35,10 @@ model Church {
   whatsappAutomatico Boolean @default(true)
   whatsappMensagem   String  @default("Olá, {nome}! 🎉 A {igreja} celebra a sua vida hoje. Feliz aniversário!")
 
+  /// O que o portal do membro mostra além dos dados da própria pessoa (só nomes; a igreja escolhe).
+  portalAniversariantes Boolean @default(false)
+  portalColegasCelula   Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -53,6 +57,7 @@ model Church {
   schoolClasses SchoolClass[]
   schoolLessons SchoolLesson[]
   families      Family[]
+  correcoes     MemberCorrection[]
 }
 
 enum UserRole {
@@ -181,6 +186,7 @@ model Member {
   enrollments       SchoolEnrollment[]
   schoolAttendances SchoolAttendance[]
   churchUser        ChurchUser?
+  correcoes         MemberCorrection[]
 
   @@index([churchId, nome])
   @@index([churchId, status])
@@ -517,4 +523,33 @@ model RateLimit {
 
   @@id([key, windowStart])
   @@index([windowStart])
+}
+
+enum CorrectionStatus {
+  pendente
+  aprovado
+  recusado
+}
+
+/// Correção de cadastro pedida pelo membro no portal. Só os campos que ele mudou ficam preenchidos;
+/// a secretaria aprova (os dados vão para o cadastro) ou recusa.
+model MemberCorrection {
+  id           String           @id @default(cuid())
+  churchId     String
+  church       Church           @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  memberId     String
+  member       Member           @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  telefone     String?
+  email        String?
+  /// Endereço completo pedido (rua, número, bairro, cidade, uf, cep), se mudou.
+  endereco     Json?
+  observacao   String           @default("")
+  status       CorrectionStatus @default(pendente)
+  createdAt    DateTime         @default(now())
+  resolvidoEm  DateTime?
+  /// Nome de quem aprovou ou recusou.
+  resolvidoPor String?
+
+  @@index([churchId, status])
+  @@index([memberId])
 }

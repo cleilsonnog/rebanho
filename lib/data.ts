@@ -12,10 +12,12 @@ import type {
   CellStudy,
   Church,
   ChurchEvent,
+  Endereco,
   Family,
   Filial,
   IssuedCertificate,
   Member,
+  MemberCorrection,
   School,
   SchoolClass,
   SchoolLesson,
@@ -250,6 +252,17 @@ export const toChurch = (r: P.Church, filiais: Filial[]): Church => ({
   lat: r.lat ?? 0,
   lng: r.lng ?? 0,
   logoUrl: r.logoUrl ?? undefined,
+  portal: { aniversariantes: r.portalAniversariantes, colegasCelula: r.portalColegasCelula },
+})
+
+export const toCorrection = (r: P.MemberCorrection): MemberCorrection => ({
+  id: r.id,
+  membroId: r.memberId,
+  telefone: r.telefone ?? undefined,
+  email: r.email ?? undefined,
+  endereco: (r.endereco as Endereco | null) ?? undefined,
+  observacao: r.observacao,
+  criadoEm: r.createdAt.toISOString(),
 })
 
 export const toWhatsApp = (r: P.Church): WhatsAppSettings => ({
@@ -305,11 +318,14 @@ export async function loadAppData({ church, user }: Session): Promise<AppData> {
   const turmas = { churchId, ...turmasVisiveis(user) }
   const professorSo = Object.keys(turmasVisiveis(user)).length > 0
 
-  const [filiais, members, families, visits, transactions, events, certificates, cells, cellMeetings, cellStudies, schools, schoolClasses, schoolLessons, users] = await Promise.all([
+  const [filiais, members, families, correcoes, visits, transactions, events, certificates, cells, cellMeetings, cellStudies, schools, schoolClasses, schoolLessons, users] = await Promise.all([
     loadFiliais(church),
     db.member.findMany({ where: membrosWhere, include: memberInclude, orderBy: { nome: "asc" } }),
     // Só as famílias de quem a pessoa vê (o líder, as da célula; a filial, as da filial).
     db.family.findMany({ where: { churchId, members: { some: membrosWhere } }, orderBy: { nome: "asc" } }),
+    canWrite(user.papel, "membros")
+      ? db.memberCorrection.findMany({ where: { churchId, status: "pendente", member: membrosScope(user) }, orderBy: { createdAt: "asc" } })
+      : [],
     pode("visitas") ? db.visit.findMany({ where: dosMembros, orderBy: { data: "desc" } }) : [],
     pode("financeiro") ? db.transaction.findMany({ where: { churchId }, orderBy: { data: "desc" } }) : [],
     db.event.findMany({ where: { churchId }, orderBy: [{ data: "asc" }, { hora: "asc" }] }),
@@ -337,6 +353,7 @@ export async function loadAppData({ church, user }: Session): Promise<AppData> {
     church: toChurch(church, filiais),
     members: members.map((m) => protegerMembro(toMember(m), escopo)),
     families: families.map(toFamily),
+    correcoes: correcoes.map(toCorrection),
     visits: visits.map(toVisit),
     transactions: transactions.map(toTransaction),
     events: events.map(toEvent),

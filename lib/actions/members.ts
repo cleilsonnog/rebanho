@@ -7,7 +7,7 @@ import { ActionError } from "../church"
 import { db } from "../db"
 import { filialDe, memberInclude, membrosScope, toDate, toMember } from "../data"
 import type { ChurchUser } from "../generated/prisma/client"
-import { aproximar, bairrosGuardados, chaveBairro, consultarBairro, espera, type Ponto } from "../geocode"
+import { aproximar, bairrosGuardados, chaveBairro, consultarBairro, espera, posicaoDoMembro, type Ponto } from "../geocode"
 import { limitar } from "../rate-limit"
 import { idSchema, importMembersSchema, memberSchema, type MemberInput } from "../validations"
 
@@ -28,17 +28,6 @@ function congregationId(mapa: Awaited<ReturnType<typeof congregacoes>>, nome: st
   return c.id
 }
 
-/**
- * Posição no mapa calculada no servidor (o que vem do navegador é ignorado): centro do bairro com desvio,
- * nunca a casa. Se o bairro não mudou, o pino fica onde estava.
- */
-async function posicao(e: MemberData["endereco"], atual?: { bairro: string; cidade: string; uf: string; lat: number | null; lng: number | null }) {
-  if (atual?.lat && atual.lng && chaveBairro(atual) === chaveBairro(e)) return { lat: atual.lat, lng: atual.lng }
-  if (!e.bairro || !e.cidade) return aproximar(null)
-  const guardado = (await bairrosGuardados([chaveBairro(e)])).get(chaveBairro(e))
-  return aproximar(guardado !== undefined ? guardado : await consultarBairro(e))
-}
-
 function toRow({ endereco, congregacao: _c, nascimento, dataBatismo, membroDesde, observacoes, lat: _lat, lng: _lng, ...m }: MemberData) {
   return {
     ...m,
@@ -54,7 +43,7 @@ export async function createMember(input: MemberInput) {
   return secureAction("membros", memberSchema, input, async (m, { church, user }, registrar) => {
     const congs = await congregacoes(church.id)
     const row = await db.member.create({
-      data: { ...toRow(m), ...(await posicao(m.endereco)), churchId: church.id, congregationId: congregationId(congs, m.congregacao, user) },
+      data: { ...toRow(m), ...(await posicaoDoMembro(m.endereco)), churchId: church.id, congregationId: congregationId(congs, m.congregacao, user) },
       include: memberInclude,
     })
     registrar(`Cadastrou o membro ${row.nome}`)
@@ -69,7 +58,7 @@ export async function updateMember(id: string, input: MemberInput) {
     const atual = await db.member.findFirstOrThrow({ where: { id, churchId: church.id, ...membrosScope(user) } })
     const row = await db.member.update({
       where: { id, churchId: church.id },
-      data: { ...toRow(m), ...(await posicao(m.endereco, atual)), congregationId: congregationId(congs, m.congregacao, user) },
+      data: { ...toRow(m), ...(await posicaoDoMembro(m.endereco, atual)), congregationId: congregationId(congs, m.congregacao, user) },
       include: memberInclude,
     })
     registrar(`Editou o cadastro de ${row.nome}`)

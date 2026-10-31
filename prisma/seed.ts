@@ -14,12 +14,14 @@ async function main() {
   // Recria a igreja de demonstração do zero (o cascade apaga os dados dela).
   await db.church.deleteMany({ where: { id: DEMO_ID } })
 
-  const { endereco, congregacoes: _c, filiais: _f, logoUrl: _l, ...church } = seedChurch
+  const { endereco, congregacoes: _c, filiais: _f, logoUrl: _l, portal, ...church } = seedChurch
   await db.church.create({
     data: {
       id: DEMO_ID,
       ...church,
       ...endereco,
+      portalAniversariantes: portal.aniversariantes,
+      portalColegasCelula: portal.colegasCelula,
       whatsappDiasAntes: seedWhatsApp.diasAntecedencia,
       whatsappAutomatico: seedWhatsApp.envioAutomatico,
       whatsappMensagem: seedWhatsApp.mensagemAniversario,

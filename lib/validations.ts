@@ -205,6 +205,21 @@ export const familySchema = z.object({
 
 export const portalAccessSchema = z.object({ membroId: id, portal: z.boolean() })
 
+/** Correção pedida pelo membro no portal: os dados como ele acha que devem ficar. */
+export const correctionSchema = z.object({
+  membroId: id,
+  telefone,
+  email,
+  endereco: enderecoSchema,
+  observacao: texto(500),
+  /** Igreja escolhida no portal, quando o e-mail tem acesso em mais de uma. */
+  igrejaId: id.optional(),
+})
+
+export const resolveCorrectionSchema = z.object({ id, aprovar: z.boolean() })
+
+export const portalSettingsSchema = z.object({ aniversariantes: z.boolean(), colegasCelula: z.boolean() })
+
 export const copyAddressSchema = z.object({ familiaId: id, membroId: id })
 
 export const SITUACOES_ALUNO = ["cursando", "concluido", "desistiu"] as const

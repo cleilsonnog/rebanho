@@ -49,6 +49,8 @@ interface AppState extends AppData {
   setPortalAccess: (p: Input<typeof portal.setPortalAccess>) => ReturnType<typeof portal.setPortalAccess>
   /** Devolve os ids de quem ganhou acesso. */
   enablePortalForAll: () => ReturnType<typeof portal.enablePortalForAll>
+  resolveCorrection: (c: Input<typeof portal.resolveCorrection>) => Promise<ActionResult<Member>>
+  updatePortalSettings: (p: Input<typeof portal.updatePortalSettings>) => Promise<ActionResult<Church["portal"]>>
 
   saveFamily: (id: string | undefined, f: Parameters<typeof families.saveFamily>[1]) => Promise<ActionResult<Family>>
   removeFamily: (id: string) => ReturnType<typeof families.deleteFamily>
@@ -165,6 +167,12 @@ function createAppStore(data: AppData) {
         const alvo = new Set(ids)
         set((s) => ({ members: s.members.map((m) => (alvo.has(m.id) ? { ...m, portal: true } : m)) }))
       }),
+
+    resolveCorrection: (c) =>
+      apply(portal.resolveCorrection(c), (membro) =>
+        set((s) => ({ correcoes: s.correcoes.filter((x) => x.id !== c.id), members: s.members.map((m) => (m.id === membro.id ? membro : m)) }))
+      ),
+    updatePortalSettings: (p) => apply(portal.updatePortalSettings(p), (cfg) => set((s) => ({ church: { ...s.church, portal: cfg } }))),
 
     // O servidor devolve quem entrou, quem saiu e as famílias que ficaram vazias; a tela acompanha.
     saveFamily: async (id, f) => {

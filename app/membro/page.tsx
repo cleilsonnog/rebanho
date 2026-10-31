@@ -3,16 +3,17 @@ import Link from "next/link"
 import { headers } from "next/headers"
 import { redirect } from "next/navigation"
 import { auth } from "@clerk/nextjs/server"
-import { CalendarDays, CircleAlert, GraduationCap, HeartHandshake, IdCard, UserRound } from "lucide-react"
+import { CalendarDays, CircleAlert, Gift, GraduationCap, HeartHandshake, IdCard, UserRound } from "lucide-react"
 
 import { Logo, LogoMark } from "@/components/brand"
 import { LogoImg } from "@/components/app/church-logo"
-import { Carteirinha, Certificados, InstalarApp, SairButton } from "@/components/portal/portal-client"
+import { Carteirinha, Certificados, InstalarApp, PedirCorrecao, SairButton } from "@/components/portal/portal-client"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PARENTESCO_LABEL, SITUACAO_ALUNO_LABEL, STATUS_LABEL, cellSchedule, formatDate } from "@/lib/format"
 import { db } from "@/lib/db"
-import { carregarPortal, emailsDoLogin, resolverAcesso } from "@/lib/portal"
+import { carregarPortal, resolverAcesso } from "@/lib/portal"
+import { loginDoPortal } from "@/lib/portal-login"
 import { cn } from "@/lib/utils"
 
 export const metadata: Metadata = {
@@ -53,7 +54,7 @@ export default async function PortalPage({ searchParams }: { searchParams: Promi
   // Sessão "pendente" (logado, sem igreja escolhida) é o normal aqui: o membro não faz parte da organização.
   const { userId } = await auth({ treatPendingAsSignedOut: false })
   if (!userId) redirect("/membro/entrar")
-  const emails = (await emailsDoLogin()) ?? []
+  const emails = (await loginDoPortal())?.emails ?? []
   const { igreja, ver } = await searchParams
   const acesso = await resolverAcesso(emails, igreja)
 
@@ -89,7 +90,7 @@ export default async function PortalPage({ searchParams }: { searchParams: Promi
     )
 
   const pessoa = acesso.visiveis.find((v) => v.id === ver) ?? acesso.visiveis[0]
-  const { church, membro: m, celula, escolas, certificados, eventos } = await carregarPortal(acesso.churchId, pessoa.id)
+  const { church, membro: m, celula, escolas, certificados, eventos, correcaoPendente, aniversariantes, colegas } = await carregarPortal(acesso.churchId, pessoa.id)
   const daEquipe = (await db.churchUser.count({ where: { clerkUserId: userId, ativo: true } })) > 0
   const h = await headers()
   const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`
@@ -161,7 +162,7 @@ export default async function PortalPage({ searchParams }: { searchParams: Promi
                 {m.ministerios.map((x) => <Badge key={x} variant="secondary">{x}</Badge>)}
               </div>
             )}
-            <p className="col-span-2 text-xs text-muted-foreground">Algum dado errado? Fale com a secretaria da igreja para corrigir.</p>
+            <PedirCorrecao m={m} igrejaId={igreja} pendente={correcaoPendente?.criadoEm} />
           </CardContent>
         </Card>
 
@@ -177,6 +178,7 @@ export default async function PortalPage({ searchParams }: { searchParams: Promi
                   <p className="text-sm text-muted-foreground">{cellSchedule(celula)}{celula.endereco && ` · ${celula.endereco}`}</p>
                 </div>
                 {celula.lideres.length > 0 && <Info label="Liderança">{celula.lideres.join(", ")}</Info>}
+                {colegas && colegas.length > 0 && <Info label="Quem participa">{colegas.join(", ")}</Info>}
                 {celula.reunioes > 0 && (
                   <Info label="Sua presença nos últimos 12 meses">
                     {celula.presencas} de {celula.reunioes} reuniões ({pct(celula.presencas, celula.reunioes)}%)
@@ -212,6 +214,17 @@ export default async function PortalPage({ searchParams }: { searchParams: Promi
             </div>
           </CardContent>
         </Card>
+
+        {aniversariantes && aniversariantes.length > 0 && (
+          <Card>
+            <CardHeader><CardTitle className="flex items-center gap-2"><Gift className="size-5 text-primary" /> Aniversariantes do mês</CardTitle></CardHeader>
+            <CardContent className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+              {aniversariantes.map((a, i) => (
+                <p key={i} className="truncate"><span className="inline-block w-7 font-semibold tabular-nums">{String(a.dia).padStart(2, "0")}</span> {a.nome}</p>
+              ))}
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader><CardTitle className="flex items-center gap-2"><CalendarDays className="size-5 text-primary" /> Agenda da igreja</CardTitle></CardHeader>

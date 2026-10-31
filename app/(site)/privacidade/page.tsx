@@ -96,7 +96,10 @@ export default function PrivacidadePage() {
           ele) e vê os próprios dados, a carteirinha, a célula com a sua presença, as escolas, os certificados emitidos e a
           agenda da igreja. Pais (responsável ou cônjuge na família) veem também os filhos menores de 18 anos. O membro não vê
           dados de outras pessoas, além do nome dos líderes da sua célula, nem dízimos, ofertas ou qualquer dado financeiro.
-          A secretaria pode cortar o acesso a qualquer momento, e o corte vale na hora.
+          Se a igreja escolher, o portal mostra também o nome e o dia do aniversário dos membros ativos do mês e os nomes
+          dos colegas de célula, sem idade, contato ou endereço. Pelo portal, o membro pode pedir a correção do telefone,
+          do e-mail, do endereço ou de outro dado; a secretaria confere antes de mudar o cadastro. A secretaria pode cortar
+          o acesso a qualquer momento, e o corte vale na hora.
         </p>
       </Secao>
 

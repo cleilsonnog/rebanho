@@ -1,11 +1,18 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 
-import { enablePortalForAll, setPortalAccess } from "@/lib/actions/portal"
+import { enablePortalForAll, resolveCorrection, setPortalAccess, updatePortalSettings } from "@/lib/actions/portal"
+import { requestCorrection } from "@/lib/actions/portal-member"
+import { loadAppData } from "@/lib/data"
 import { db } from "@/lib/db"
 import type { Church, Member } from "@/lib/generated/prisma/client"
 import { carregarPortal, resolverAcesso } from "@/lib/portal"
+import { loginDoPortal } from "@/lib/portal-login"
 
 import { apagarIgrejasDeTeste, criarIgreja, criarUsuario, filialPorNome, logar } from "./helpers"
+
+// O login do membro no Clerk é simulado: cada teste escolhe os e-mails verificados da conta.
+vi.mock("@/lib/portal-login", () => ({ loginDoPortal: vi.fn() }))
+const entrarComo = (...emails: string[]) => vi.mocked(loginDoPortal).mockResolvedValue({ userId: `user-${emails[0]}`, emails })
 
 // Portal do membro: quem a conta vê sai do e-mail com o portal liberado (lib/portal.ts › resolverAcesso).
 // Cada pessoa vê a si mesma; casal com um e-mail só vê os dois; pais veem os filhos menores de 18 anos.
@@ -114,7 +121,7 @@ describe("dados do portal", () => {
     expect(d.celula!.presencas).toBeLessThanOrEqual(d.celula!.reunioes)
     expect(d.escolas.length).toBeGreaterThan(0)
     for (const e of d.escolas) expect(e.presencas).toBeLessThanOrEqual(e.aulas)
-    expect(Object.keys(d).sort()).toEqual(["celula", "certificados", "church", "escolas", "eventos", "membro"])
+    expect(Object.keys(d).filter((k) => d[k as keyof typeof d] !== undefined).sort()).toEqual(["celula", "certificados", "church", "escolas", "eventos", "membro"])
     // Dos líderes só vai o nome: telefone e e-mail deles não podem aparecer (o endereço da célula é o do anfitrião, de propósito).
     const lideres = await db.member.findMany({ where: { cellRoles: { some: { cellId: comCelula.cellId! } }, id: { not: comCelula.id } } })
     const json = JSON.stringify(d)
@@ -161,5 +168,104 @@ describe("secretaria libera o portal", () => {
     await logar(await criarUsuario(outra.id, "secretaria"))
     expect((await setPortalAccess({ membroId: sozinho.id, portal: true })).ok).toBe(false)
     expect(await db.member.findUniqueOrThrow({ where: { id: sozinho.id } })).toMatchObject({ portal: false })
+  })
+})
+
+describe("pedido de correção", () => {
+  const endereco = (m: Member) => ({ rua: "Rua Nova", numero: "99", bairro: m.bairro, cidade: m.cidade, uf: m.uf.trim(), cep: m.cep })
+  const pedido = (m: Member, extra: object = {}) => ({
+    membroId: m.id,
+    telefone: m.telefone,
+    email: m.email,
+    endereco: { rua: m.rua, numero: m.numero, bairro: m.bairro, cidade: m.cidade, uf: m.uf.trim(), cep: m.cep },
+    observacao: "",
+    ...extra,
+  })
+  let pai: Member
+
+  beforeAll(async () => {
+    pai = await liberar(familia.pai.id, email("pai"))
+    entrarComo(email("pai"))
+  })
+
+  it("sem login não envia", async () => {
+    vi.mocked(loginDoPortal).mockResolvedValueOnce(null)
+    expect(await requestCorrection(pedido(pai))).toMatchObject({ ok: false, error: "Sua sessão expirou. Entre novamente." })
+  })
+
+  it("guarda só o que mudou; sem mudança, não cria pedido", async () => {
+    expect(await requestCorrection(pedido(pai))).toEqual({ ok: true, data: { enviado: false } })
+    expect(await requestCorrection(pedido(pai, { telefone: "(62) 98888-7777", endereco: endereco(pai) }))).toEqual({ ok: true, data: { enviado: true } })
+    const c = await db.memberCorrection.findFirstOrThrow({ where: { memberId: pai.id, status: "pendente" } })
+    expect(c).toMatchObject({ telefone: "(62) 98888-7777", email: null, endereco: { rua: "Rua Nova", numero: "99" } })
+  })
+
+  it("um pedido novo substitui o que estava esperando", async () => {
+    await requestCorrection(pedido(pai, { observacao: "Meu batismo foi em 2010." }))
+    const pendentes = await db.memberCorrection.findMany({ where: { memberId: pai.id, status: "pendente" } })
+    expect(pendentes).toHaveLength(1)
+    expect(pendentes[0]).toMatchObject({ telefone: null, endereco: null, observacao: "Meu batismo foi em 2010." })
+  })
+
+  it("pede pelo filho menor, mas não por quem ele não vê", async () => {
+    const [, filho] = familia.filhos
+    if (filho) expect((await requestCorrection(pedido(filho, { observacao: "Escola nova" }))).ok).toBe(true)
+    expect(await requestCorrection(pedido(sozinho, { observacao: "x" }))).toMatchObject({ ok: false, error: "Você não tem acesso a esse cadastro." })
+    expect(await requestCorrection(pedido(familia.mae, { observacao: "x" }))).toMatchObject({ ok: false })
+  })
+
+  it("a secretaria aprova (cadastro atualizado) ou recusa (fica como estava)", async () => {
+    await requestCorrection(pedido(pai, { telefone: "(62) 97777-6666", endereco: endereco(pai) }))
+    const sec = await criarUsuario(igreja.id, "secretaria")
+    await logar(sec)
+    const d = await loadAppData({ church: igreja, user: sec })
+    const c = d.correcoes.find((x) => x.membroId === pai.id)!
+    expect(c).toMatchObject({ telefone: "(62) 97777-6666", endereco: { rua: "Rua Nova" } })
+
+    const r = await resolveCorrection({ id: c.id, aprovar: true })
+    expect(r.ok && r.data).toMatchObject({ telefone: "(62) 97777-6666", endereco: { rua: "Rua Nova", numero: "99" } })
+    expect(await db.memberCorrection.findUniqueOrThrow({ where: { id: c.id } })).toMatchObject({ status: "aprovado", resolvidoPor: sec.nome })
+    expect((await resolveCorrection({ id: c.id, aprovar: true })).ok).toBe(false)
+
+    entrarComo(email("pai"))
+    await requestCorrection(pedido(pai, { telefone: "(62) 90000-0000" }))
+    await logar(sec)
+    const outro = await db.memberCorrection.findFirstOrThrow({ where: { memberId: pai.id, status: "pendente" } })
+    expect((await resolveCorrection({ id: outro.id, aprovar: false })).ok).toBe(true)
+    expect(await db.member.findUniqueOrThrow({ where: { id: pai.id } })).toMatchObject({ telefone: "(62) 97777-6666" })
+  })
+
+  it("tesouraria não recebe nem resolve; outra igreja também não", async () => {
+    entrarComo(email("pai"))
+    await requestCorrection(pedido(pai, { observacao: "teste" }))
+    const c = await db.memberCorrection.findFirstOrThrow({ where: { memberId: pai.id, status: "pendente" } })
+    const tes = await criarUsuario(igreja.id, "tesouraria")
+    expect((await loadAppData({ church: igreja, user: tes })).correcoes).toEqual([])
+    await logar(tes)
+    expect(await resolveCorrection({ id: c.id, aprovar: true })).toEqual(NEGADO)
+    await logar(await criarUsuario(outra.id, "secretaria"))
+    expect((await resolveCorrection({ id: c.id, aprovar: true })).ok).toBe(false)
+    expect(await db.memberCorrection.findUniqueOrThrow({ where: { id: c.id } })).toMatchObject({ status: "pendente" })
+  })
+})
+
+describe("o que mais o portal mostra", () => {
+  it("desligado por padrão; ligado, só nomes e dia do aniversário", async () => {
+    const comCelula = await db.member.findFirstOrThrow({ where: { churchId: igreja.id, cellId: { not: null }, status: "ativo" } })
+    const antes = await carregarPortal(igreja.id, comCelula.id)
+    expect(antes.aniversariantes).toBeUndefined()
+    expect(antes.colegas).toBeUndefined()
+
+    const sec = await criarUsuario(igreja.id, "secretaria")
+    await logar(sec)
+    expect(await updatePortalSettings({ aniversariantes: true, colegasCelula: true })).toEqual(NEGADO)
+    await logar(await criarUsuario(igreja.id, "admin"))
+    expect((await updatePortalSettings({ aniversariantes: true, colegasCelula: true })).ok).toBe(true)
+
+    const depois = await carregarPortal(igreja.id, comCelula.id)
+    expect(depois.aniversariantes?.length).toBeGreaterThan(0)
+    for (const a of depois.aniversariantes!) expect(Object.keys(a).sort()).toEqual(["dia", "nome"])
+    expect(depois.colegas?.length).toBeGreaterThan(0)
+    expect(depois.colegas!.every((n) => typeof n === "string")).toBe(true)
   })
 })

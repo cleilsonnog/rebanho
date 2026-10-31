@@ -1,10 +1,15 @@
 import "server-only"
 
-import { currentUser } from "@clerk/nextjs/server"
+import type { z } from "zod"
 
+import type { ActionResult } from "./action"
+import { ActionError } from "./church"
 import { db } from "./db"
 import { cellInclude, loadFiliais, toCertificate, toChurch, toEvent, toISO, toMember } from "./data"
 import { age } from "./format"
+import { loginDoPortal } from "./portal-login"
+import { limitar } from "./rate-limit"
+import { fieldErrors } from "./validations"
 import type { Church, ChurchEvent, IssuedCertificate, Member, Parentesco, SituacaoAluno } from "./types"
 
 // Portal do membro (/membro). O membro é um usuário comum do Clerk, fora da organização da igreja (o Clerk
@@ -59,11 +64,34 @@ export async function resolverAcesso(emails: string[], igrejaId?: string): Promi
   return { tipo: "ok", churchId: igreja.id, igreja: igreja.nome, visiveis }
 }
 
-/** E-mails verificados da conta logada no Clerk (a sessão do membro fica "pendente": ele não tem organização). */
-export async function emailsDoLogin() {
-  const user = await currentUser({ treatPendingAsSignedOut: false })
-  if (!user) return null
-  return user.emailAddresses.filter((e) => e.verification?.status === "verified").map((e) => e.emailAddress)
+/**
+ * Server Action do portal (o membro não é usuário da igreja, então não passa pelo `secureAction`). Confere, nesta
+ * ordem: login, rate limit, acesso pelo e-mail, entrada válida e que `membroId` é uma das pessoas que a conta vê.
+ */
+export async function portalAction<S extends z.ZodType<{ membroId: string }>, T>(
+  schema: S,
+  input: unknown,
+  fn: (data: z.output<S>, ctx: { churchId: string; pessoa: Pessoa }) => Promise<T>
+): Promise<ActionResult<T>> {
+  try {
+    const login = await loginDoPortal()
+    if (!login) return { ok: false, error: "Sua sessão expirou. Entre novamente." }
+    await limitar("portal", login.userId)
+    const parsed = schema.safeParse(input)
+    if (!parsed.success) {
+      const errors = fieldErrors(parsed.error)
+      return { ok: false, error: Object.values(errors)[0] ?? "Dados inválidos.", fieldErrors: errors }
+    }
+    const igreja = (input as { igrejaId?: string }).igrejaId
+    const acesso = await resolverAcesso(login.emails, igreja)
+    const pessoa = acesso.tipo === "ok" ? acesso.visiveis.find((v) => v.id === parsed.data.membroId) : undefined
+    if (acesso.tipo !== "ok" || !pessoa) return { ok: false, error: "Você não tem acesso a esse cadastro." }
+    return { ok: true, data: await fn(parsed.data, { churchId: acesso.churchId, pessoa }) }
+  } catch (e) {
+    if (e instanceof ActionError) return { ok: false, error: e.message }
+    console.error("[portalAction]", e)
+    return { ok: false, error: "Não foi possível concluir. Tente de novo." }
+  }
 }
 
 export interface PortalData {
@@ -73,6 +101,18 @@ export interface PortalData {
   escolas: { turmaId: string; escola: string; turma: string; horario: string; situacao: SituacaoAluno; concluidoEm?: string; aulas: number; presencas: number }[]
   certificados: IssuedCertificate[]
   eventos: ChurchEvent[]
+  /** Correção que o membro pediu e a secretaria ainda não resolveu. */
+  correcaoPendente?: { criadoEm: string }
+  /** Só se a igreja ligou: nome e dia de quem faz aniversário neste mês (ativos). */
+  aniversariantes?: { nome: string; dia: number }[]
+  /** Só se a igreja ligou: nomes de quem é da mesma célula. */
+  colegas?: string[]
+}
+
+/** "Maria Souza" a partir de "Maria Aparecida Souza": primeiro e último nome. */
+const nomeCurto = (nome: string) => {
+  const p = nome.trim().split(/\s+/)
+  return p.length > 1 ? `${p[0]} ${p.at(-1)}` : p[0]
 }
 
 /**
@@ -91,15 +131,21 @@ export async function carregarPortal(churchId: string, membroId: string): Promis
         cell: { include: { ...cellInclude, leaders: { where: { funcao: { in: ["lider", "colider"] } }, include: { member: { select: { nome: true } } } } } },
         enrollments: { include: { class: { include: { school: true, lessons: { include: { presencas: { where: { memberId: membroId } } } } } } } },
         certificates: { orderBy: { emitidoEm: "desc" } },
+        correcoes: { where: { status: "pendente" }, take: 1 },
       },
     }),
   ])
-  const [filiais, reunioes, eventos] = await Promise.all([
+  const mes = new Date().getUTCMonth()
+  const [filiais, reunioes, eventos, ativos, colegas] = await Promise.all([
     loadFiliais(church),
     m.cellId
       ? db.cellMeeting.findMany({ where: { cellId: m.cellId, data: { gte: umAnoAtras } }, include: { presencas: { where: { memberId: membroId } } } })
       : [],
     db.event.findMany({ where: { churchId, data: { gte: hoje } }, orderBy: [{ data: "asc" }, { hora: "asc" }], take: 8 }),
+    church.portalAniversariantes ? db.member.findMany({ where: { churchId, status: "ativo" }, select: { nome: true, nascimento: true } }) : [],
+    church.portalColegasCelula && m.cellId
+      ? db.member.findMany({ where: { cellId: m.cellId, id: { not: m.id }, status: { not: "transferido" } }, select: { nome: true }, orderBy: { nome: "asc" } })
+      : [],
   ])
 
   const c = m.cell
@@ -129,5 +175,13 @@ export async function carregarPortal(churchId: string, membroId: string): Promis
     })),
     certificados: m.certificates.map(toCertificate),
     eventos: eventos.map(toEvent),
+    correcaoPendente: m.correcoes[0] ? { criadoEm: m.correcoes[0].createdAt.toISOString() } : undefined,
+    aniversariantes: church.portalAniversariantes
+      ? ativos
+          .filter((a) => a.nascimento.getUTCMonth() === mes)
+          .map((a) => ({ nome: nomeCurto(a.nome), dia: a.nascimento.getUTCDate() }))
+          .sort((a, b) => a.dia - b.dia || a.nome.localeCompare(b.nome, "pt-BR"))
+      : undefined,
+    colegas: church.portalColegasCelula && m.cellId ? colegas.map((c) => nomeCurto(c.nome)) : undefined,
   }
 }
