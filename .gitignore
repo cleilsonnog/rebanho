@@ -41,3 +41,6 @@ next-env.d.ts
 
 # prisma client gerado
 /lib/generated/
+
+#tarefas
+tasks.md
