@@ -27,6 +27,7 @@ import { useApp } from "@/lib/store"
 import type { Member, MemberStatus } from "@/lib/types"
 
 const PAGE_SIZE = 15
+const ORDEM_PARENTESCO = Object.keys(PARENTESCO_LABEL)
 
 function toCSV(members: Member[], familia: (m: Member) => string) {
   const header = ["Nome", "Sexo", "Nascimento", "Telefone", "E-mail", "Bairro", "Cidade", "Congregação", "Cargo", "Situação", "Batizado", "Família", "Parentesco"]
@@ -54,6 +55,8 @@ export default function MembrosPage() {
   const [status, setStatus] = React.useState<"todos" | MemberStatus>("todos")
   const [cong, setCong] = React.useState("todas")
   const [cargo, setCargo] = React.useState("todos")
+  // "todas", "com", "sem" ou o id de uma família.
+  const [familia, setFamilia] = React.useState("todas")
   const [page, setPage] = React.useState(0)
   const resetting = <T,>(set: (v: T) => void) => (v: T) => {
     set(v)
@@ -66,6 +69,7 @@ export default function MembrosPage() {
       .filter((m) => status === "todos" || m.status === status)
       .filter((m) => cong === "todas" || m.congregacao === cong)
       .filter((m) => cargo === "todos" || m.cargo === cargo)
+      .filter((m) => (familia === "todas" ? true : familia === "com" ? !!m.familiaId : familia === "sem" ? !m.familiaId : m.familiaId === familia))
       .filter(
         (m) =>
           !term ||
@@ -74,8 +78,15 @@ export default function MembrosPage() {
           m.endereco.bairro.toLowerCase().includes(term) ||
           nomeFamilia(m).toLowerCase().includes(term)
       )
-      .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
-  }, [members, q, status, cong, cargo, nomeFamilia])
+      .sort((a, b) =>
+        // Filtrando por família, os familiares ficam juntos: responsável, cônjuge, filhos (do mais velho), outros.
+        familia !== "todas" && familia !== "sem"
+          ? nomeFamilia(a).localeCompare(nomeFamilia(b), "pt-BR") ||
+            ORDEM_PARENTESCO.indexOf(a.parentesco ?? "outro") - ORDEM_PARENTESCO.indexOf(b.parentesco ?? "outro") ||
+            a.nascimento.localeCompare(b.nascimento)
+          : a.nome.localeCompare(b.nome, "pt-BR")
+      )
+  }, [members, q, status, cong, cargo, familia, nomeFamilia])
 
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const visible = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
@@ -105,7 +116,7 @@ export default function MembrosPage() {
             <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input value={q} onChange={(e) => resetting(setQ)(e.target.value)} placeholder="Buscar por nome, telefone, bairro ou família" className="pl-8" />
           </div>
-          <div className="grid grid-cols-3 gap-2 lg:flex">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:flex">
             <Select value={status} onValueChange={resetting((v: string) => setStatus(v as typeof status))}>
               <SelectTrigger className="w-full lg:w-44"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -125,6 +136,15 @@ export default function MembrosPage() {
               <SelectContent>
                 <SelectItem value="todos">Todos cargos</SelectItem>
                 {CARGOS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={familia} onValueChange={resetting(setFamilia)}>
+              <SelectTrigger className="w-full lg:w-44" aria-label="Família"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todas">Todas as famílias</SelectItem>
+                <SelectItem value="com">Com família</SelectItem>
+                <SelectItem value="sem">Sem família</SelectItem>
+                {families.map((f) => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -149,7 +169,9 @@ export default function MembrosPage() {
                     <MemberAvatar nome={m.nome} className="size-8" />
                     <div className="min-w-0">
                       <p className="truncate font-medium">{m.nome}</p>
-                      <p className="truncate text-xs text-muted-foreground">{m.telefone}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {[m.telefone, m.familiaId && `${nomeFamilia(m)} (${PARENTESCO_LABEL[m.parentesco ?? "outro"].toLowerCase()})`].filter(Boolean).join(" · ")}
+                      </p>
                     </div>
                   </div>
                 </TableCell>
