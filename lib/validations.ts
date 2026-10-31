@@ -203,6 +203,8 @@ export const familySchema = z.object({
     .refine((ms) => new Set(ms.map((m) => m.id)).size === ms.length, "A mesma pessoa aparece duas vezes"),
 })
 
+export const portalAccessSchema = z.object({ membroId: id, portal: z.boolean() })
+
 export const copyAddressSchema = z.object({ familiaId: id, membroId: id })
 
 export const SITUACOES_ALUNO = ["cursando", "concluido", "desistiu"] as const

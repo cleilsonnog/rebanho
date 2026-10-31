@@ -11,6 +11,7 @@ import * as events from "./actions/events"
 import * as families from "./actions/families"
 import * as finance from "./actions/finance"
 import * as members from "./actions/members"
+import * as portal from "./actions/portal"
 import * as schools from "./actions/schools"
 import * as users from "./actions/users"
 import * as visits from "./actions/visits"
@@ -44,6 +45,10 @@ interface AppState extends AppData {
   updateMember: (id: string, m: Input<typeof members.createMember>) => Promise<ActionResult<Member>>
   removeMember: (id: string) => Promise<ActionResult>
   localizarMembros: () => ReturnType<typeof members.localizarMembros>
+
+  setPortalAccess: (p: Input<typeof portal.setPortalAccess>) => ReturnType<typeof portal.setPortalAccess>
+  /** Devolve os ids de quem ganhou acesso. */
+  enablePortalForAll: () => ReturnType<typeof portal.enablePortalForAll>
 
   saveFamily: (id: string | undefined, f: Parameters<typeof families.saveFamily>[1]) => Promise<ActionResult<Family>>
   removeFamily: (id: string) => ReturnType<typeof families.deleteFamily>
@@ -149,6 +154,16 @@ function createAppStore(data: AppData) {
       apply(members.localizarMembros(), ({ atualizados }) => {
         const pos = new Map(atualizados.map((p) => [p.id, p]))
         set((s) => ({ members: s.members.map((m) => (pos.has(m.id) ? { ...m, lat: pos.get(m.id)!.lat, lng: pos.get(m.id)!.lng } : m)) }))
+      }),
+
+    setPortalAccess: (p) =>
+      apply(portal.setPortalAccess(p), (liberado) =>
+        set((s) => ({ members: s.members.map((m) => (m.id === p.membroId ? { ...m, portal: liberado || undefined } : m)) }))
+      ),
+    enablePortalForAll: () =>
+      apply(portal.enablePortalForAll(), (ids) => {
+        const alvo = new Set(ids)
+        set((s) => ({ members: s.members.map((m) => (alvo.has(m.id) ? { ...m, portal: true } : m)) }))
       }),
 
     // O servidor devolve quem entrou, quem saiu e as famílias que ficaram vazias; a tela acompanha.

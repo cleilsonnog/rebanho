@@ -55,6 +55,7 @@ const planoItens = [
   "Controle de visitantes e visitas pastorais",
   "Aniversários automáticos no WhatsApp",
   "Carteirinha com QR Code",
+  "Portal do membro: carteirinha, célula e escolas no celular",
   "Mapa interativo de membros",
   "Células com presença, visitantes e estudo da semana",
   "Escolas (batismo, discipulado) com turmas e presença",

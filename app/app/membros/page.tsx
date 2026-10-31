@@ -3,7 +3,8 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Download, MoreHorizontal, Search, Upload, UserPlus } from "lucide-react"
+import { Download, KeyRound, MoreHorizontal, Search, Upload, UserPlus } from "lucide-react"
+import { toast } from "sonner"
 
 import { MemberAvatar, StatusBadge } from "@/components/app/member-avatar"
 import { PageHeader } from "@/components/app/page-header"
@@ -49,6 +50,7 @@ export default function MembrosPage() {
   }, [families])
   const congregacoes = useApp((s) => s.church.congregacoes)
   const removeMember = useApp((s) => s.removeMember)
+  const enablePortalForAll = useApp((s) => s.enablePortalForAll)
   const pode = useApp((s) => canWrite(s.me.papel, "membros"))
 
   const [q, setQ] = React.useState("")
@@ -91,6 +93,15 @@ export default function MembrosPage() {
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const visible = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
+  async function liberarPortal() {
+    const n = members.filter((m) => !m.portal && m.email && (m.status === "ativo" || m.status === "afastado")).length
+    if (n === 0) return toast.info("Todos os membros ativos com e-mail já têm o portal liberado.")
+    if (!confirm(`Liberar o portal do membro para ${n} pessoa(s) ativas ou afastadas com e-mail? Cada uma entra com o próprio e-mail.`)) return
+    const r = await enablePortalForAll()
+    if (r.ok) toast.success(`Portal liberado para ${r.data.length} pessoa(s). Mande o link /membro para elas.`)
+    else toast.error(r.error)
+  }
+
   function exportCSV() {
     const blob = new Blob(["﻿" + toCSV(filtered, nomeFamilia)], { type: "text/csv;charset=utf-8" })
     const url = URL.createObjectURL(blob)
@@ -107,6 +118,7 @@ export default function MembrosPage() {
         {/* Exportar tira os dados do sistema: só quem já vê o cadastro completo. */}
         {pode && <Button variant="outline" onClick={exportCSV}><Download /> Exportar</Button>}
         {pode && <Button variant="outline" asChild><Link href="/app/importar"><Upload /> Importar</Link></Button>}
+        {pode && <Button variant="outline" onClick={liberarPortal}><KeyRound /> Liberar portal</Button>}
         {pode && <Button asChild><Link href="/app/membros/novo"><UserPlus /> Novo membro</Link></Button>}
       </PageHeader>
 

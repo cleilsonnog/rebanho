@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
-import { ArrowLeft, Award, CalendarClock, GraduationCap, HeartHandshake, Home, IdCard, MapPin, MessageCircle, Pencil, Phone, Mail, Unlink, Users } from "lucide-react"
+import { ArrowLeft, Award, CalendarClock, GraduationCap, HeartHandshake, Copy, Home, IdCard, KeyRound, MapPin, MessageCircle, Pencil, Phone, Mail, Unlink, Users } from "lucide-react"
 import { toast } from "sonner"
 
 import { FamilyFormDialog } from "@/components/app/family-form"
@@ -82,6 +82,60 @@ function FamiliaCard({ m, podeEditar, comEndereco }: { m: Member; podeEditar: bo
         )}
       </CardContent>
       {form && <FamilyFormDialog open onOpenChange={setForm} familiaId={familia?.id} membroId={m.id} />}
+    </Card>
+  )
+}
+
+/** Acesso ao portal do membro (/membro): a secretaria libera ou corta e manda o link para a pessoa. */
+function PortalCard({ m }: { m: Member }) {
+  const setPortalAccess = useApp((s) => s.setPortalAccess)
+  const church = useApp((s) => s.church.nome)
+  const link = typeof window === "undefined" ? "/membro" : `${window.location.origin}/membro`
+  const convite = `Olá, ${m.nome.split(" ")[0]}! A ${church} liberou o seu acesso ao portal do membro: carteirinha, célula, escolas e agenda. Entre em ${link} com o e-mail ${m.email}.`
+
+  async function mudar(portal: boolean) {
+    if (!portal && !confirm(`Cortar o acesso de ${m.nome} ao portal do membro?`)) return
+    await notify(setPortalAccess({ membroId: m.id, portal }), portal ? "Portal liberado" : "Acesso cortado")
+  }
+
+  return (
+    <Card className="lg:col-span-3">
+      <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
+        <CardTitle className="flex items-center gap-2">
+          <KeyRound className="size-5 text-primary" /> Portal do membro
+          {m.portal ? <Badge>Liberado</Badge> : <Badge variant="secondary">Não liberado</Badge>}
+        </CardTitle>
+        <div className="flex flex-wrap gap-2">
+          {m.portal && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigator.clipboard.writeText(convite).then(() => toast.success("Convite copiado"))}
+              >
+                <Copy /> Copiar convite
+              </Button>
+              {m.telefone && (
+                <Button variant="outline" size="sm" asChild>
+                  <a href={whatsappLink(m.telefone, convite)} target="_blank" rel="noreferrer"><MessageCircle /> Enviar no WhatsApp</a>
+                </Button>
+              )}
+            </>
+          )}
+          {m.portal ? (
+            <Button variant="outline" size="sm" onClick={() => mudar(false)}>Cortar acesso</Button>
+          ) : (
+            <Button size="sm" disabled={!m.email} onClick={() => mudar(true)}>Liberar portal</Button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="text-sm text-muted-foreground">
+        {!m.email
+          ? "Cadastre o e-mail da pessoa para liberar: o login no portal é por ele."
+          : m.portal
+            ? `Entra em ${link} com o e-mail ${m.email} e vê a própria carteirinha, célula, escolas e a agenda (e os filhos menores, se for responsável ou cônjuge na família).`
+            : `Ao liberar, a pessoa entra em ${link} com o e-mail ${m.email}, sem senha da igreja: recebe um código no e-mail.`}
+      </CardContent>
     </Card>
   )
 }
@@ -233,6 +287,7 @@ export default function MembroPage() {
             )}
           </Card>
           <FamiliaCard m={m} podeEditar={podeEditar} comEndereco={memberScope(papel) === "completo"} />
+          {podeEditar && <PortalCard m={m} />}
         </TabsContent>
 
         <TabsContent value="visitas">

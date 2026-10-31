@@ -53,6 +53,7 @@ export function toMember(r: P.Member & { congregation: { nome: string } | null }
     observacoes: r.observacoes ?? undefined,
     familiaId: r.familyId ?? undefined,
     parentesco: r.parentesco ?? undefined,
+    portal: r.portal || undefined,
   }
 }
 

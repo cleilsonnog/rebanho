@@ -48,8 +48,8 @@ export default function PrivacidadePage() {
           <li>Os dados da igreja e dos membros ficam num banco de dados PostgreSQL da Neon, hospedado em São Paulo, Brasil.</li>
           <li>
             O login é feito pelo Clerk, empresa dos Estados Unidos. Ele trata o nome, o e-mail e a senha dos usuários do
-            sistema (os membros cadastrados não passam pelo Clerk). Há, portanto, transferência internacional desses dados
-            de login, com as garantias contratuais do fornecedor.
+            sistema e dos membros que entram no portal do membro (os demais dados dos membros não passam pelo Clerk). Há,
+            portanto, transferência internacional desses dados de login, com as garantias contratuais do fornecedor.
           </li>
           <li>
             Para pôr a igreja e as células no mapa, o endereço digitado (rua, número, bairro, cidade e CEP, sem nome de
@@ -88,6 +88,16 @@ export default function PrivacidadePage() {
             últimas (cerca de um mês); as mais antigas são apagadas automaticamente.
           </li>
         </ul>
+      </Secao>
+
+      <Secao titulo="Portal do membro">
+        <p>
+          Quando a secretaria libera, o membro entra no portal com o e-mail do cadastro (confirmado por um código enviado a
+          ele) e vê os próprios dados, a carteirinha, a célula com a sua presença, as escolas, os certificados emitidos e a
+          agenda da igreja. Pais (responsável ou cônjuge na família) veem também os filhos menores de 18 anos. O membro não vê
+          dados de outras pessoas, além do nome dos líderes da sua célula, nem dízimos, ofertas ou qualquer dado financeiro.
+          A secretaria pode cortar o acesso a qualquer momento, e o corte vale na hora.
+        </p>
       </Secao>
 
       <Secao titulo="Página pública da carteirinha">

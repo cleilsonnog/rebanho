@@ -31,6 +31,8 @@ export interface Member {
   observacoes?: string
   familiaId?: string
   parentesco?: Parentesco
+  /** Acesso ao portal do membro liberado pela secretaria. */
+  portal?: boolean
 }
 
 export type Parentesco = "responsavel" | "conjuge" | "filho" | "outro"
