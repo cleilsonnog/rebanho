@@ -1,4 +1,4 @@
-import type { Member, MemberStatus, SituacaoAluno, UserRole } from "./types"
+import type { Member, MemberStatus, Parentesco, SituacaoAluno, UserRole } from "./types"
 
 // Data de referência da demonstração. Em produção, troque por `new Date()`.
 export const TODAY = new Date("2026-10-24T12:00:00")
@@ -75,6 +75,13 @@ export const SITUACAO_ALUNO_LABEL: Record<SituacaoAluno, string> = {
   cursando: "Cursando",
   concluido: "Concluiu",
   desistiu: "Desistiu",
+}
+
+export const PARENTESCO_LABEL: Record<Parentesco, string> = {
+  responsavel: "Responsável",
+  conjuge: "Cônjuge",
+  filho: "Filho(a)",
+  outro: "Outro parente",
 }
 
 export const AGE_BANDS = [

@@ -29,6 +29,16 @@ export interface Member {
   dataBatismo?: string
   membroDesde: string
   observacoes?: string
+  familiaId?: string
+  parentesco?: Parentesco
+}
+
+export type Parentesco = "responsavel" | "conjuge" | "filho" | "outro"
+
+/** Os membros da família vêm de `members` (cada um com `familiaId`): quem vê só parte dos membros vê só parte da família. */
+export interface Family {
+  id: string
+  nome: string
 }
 
 export interface Visit {
@@ -212,6 +222,8 @@ export interface AppData {
   cellMeetings: CellMeeting[]
   /** Estudos da semana dos últimos 12 meses e os já programados. */
   cellStudies: CellStudy[]
+  /** Famílias com pelo menos um membro que o usuário vê. */
+  families: Family[]
   schools: School[]
   /** Todas as turmas, ou só as que o usuário ensina (lib/data.ts › turmasVisiveis). */
   schoolClasses: SchoolClass[]

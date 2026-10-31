@@ -80,6 +80,8 @@ export async function updateMember(id: string, input: MemberInput) {
 export async function deleteMember(id: string) {
   return secureAction("membros", idSchema, id, async (id, { church, user }, registrar) => {
     const row = await db.member.delete({ where: { id, churchId: church.id, ...membrosScope(user) } })
+    // A família de quem era a última pessoa dela some junto.
+    if (row.familyId) await db.family.deleteMany({ where: { id: row.familyId, members: { none: {} } } })
     registrar(`Excluiu o membro ${row.nome}`)
   })
 }

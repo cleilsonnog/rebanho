@@ -8,6 +8,7 @@ import * as cells from "./actions/cells"
 import * as certificates from "./actions/certificates"
 import * as church from "./actions/church"
 import * as events from "./actions/events"
+import * as families from "./actions/families"
 import * as finance from "./actions/finance"
 import * as members from "./actions/members"
 import * as schools from "./actions/schools"
@@ -20,6 +21,7 @@ import type {
   CellMeeting,
   CellStudy,
   Church,
+  Family,
   Filial,
   ChurchEvent,
   IssuedCertificate,
@@ -42,6 +44,11 @@ interface AppState extends AppData {
   updateMember: (id: string, m: Input<typeof members.createMember>) => Promise<ActionResult<Member>>
   removeMember: (id: string) => Promise<ActionResult>
   localizarMembros: () => ReturnType<typeof members.localizarMembros>
+
+  saveFamily: (id: string | undefined, f: Parameters<typeof families.saveFamily>[1]) => Promise<ActionResult<Family>>
+  removeFamily: (id: string) => ReturnType<typeof families.deleteFamily>
+  /** Devolve quantas pessoas receberam o endereço. */
+  copyFamilyAddress: (f: Input<typeof families.copyFamilyAddress>) => ReturnType<typeof families.copyFamilyAddress>
 
   addVisit: (v: Input<typeof visits.createVisit>) => Promise<ActionResult<Visit>>
   removeVisit: (id: string) => Promise<ActionResult>
@@ -142,6 +149,35 @@ function createAppStore(data: AppData) {
       apply(members.localizarMembros(), ({ atualizados }) => {
         const pos = new Map(atualizados.map((p) => [p.id, p]))
         set((s) => ({ members: s.members.map((m) => (pos.has(m.id) ? { ...m, lat: pos.get(m.id)!.lat, lng: pos.get(m.id)!.lng } : m)) }))
+      }),
+
+    // O servidor devolve quem entrou, quem saiu e as famílias que ficaram vazias; a tela acompanha.
+    saveFamily: async (id, f) => {
+      const r = await families.saveFamily(id, f)
+      if (!r.ok) return r
+      const { familia, membros, removidos, apagadas } = r.data
+      const novo = new Map(membros.map((m) => [m.id, m.parentesco]))
+      const sai = new Set(removidos)
+      set((s) => ({
+        families: porNome([...s.families.filter((x) => x.id !== familia.id && !apagadas.includes(x.id)), familia]),
+        members: s.members.map((m) =>
+          novo.has(m.id) ? { ...m, familiaId: familia.id, parentesco: novo.get(m.id) } : sai.has(m.id) ? { ...m, familiaId: undefined, parentesco: undefined } : m
+        ),
+      }))
+      return { ok: true, data: familia }
+    },
+    removeFamily: (id) =>
+      apply(families.deleteFamily(id), ({ removidos, apagadas }) => {
+        const sai = new Set(removidos)
+        set((s) => ({
+          families: s.families.filter((x) => !apagadas.includes(x.id)),
+          members: s.members.map((m) => (sai.has(m.id) ? { ...m, familiaId: undefined, parentesco: undefined } : m)),
+        }))
+      }),
+    copyFamilyAddress: (f) =>
+      apply(families.copyFamilyAddress(f), ({ ids, endereco, lat, lng }) => {
+        const alvo = new Set(ids)
+        set((s) => ({ members: s.members.map((m) => (alvo.has(m.id) ? { ...m, endereco, lat, lng } : m)) }))
       }),
 
     addVisit: (v) => apply(visits.createVisit(v), (visit) => set((s) => ({ visits: byDateDesc([visit, ...s.visits]) }))),

@@ -192,6 +192,19 @@ export const schoolClassSchema = z.object({
   alunos: membroIds(300, "Alunos demais numa turma"),
 })
 
+export const PARENTESCOS = ["responsavel", "conjuge", "filho", "outro"] as const
+
+export const familySchema = z.object({
+  nome: obrigatorio(80, "Nome da família"),
+  membros: z
+    .array(z.object({ id, parentesco: z.enum(PARENTESCOS, "Escolha o parentesco") }))
+    .min(1, "Inclua pelo menos uma pessoa")
+    .max(30, "Pessoas demais numa família")
+    .refine((ms) => new Set(ms.map((m) => m.id)).size === ms.length, "A mesma pessoa aparece duas vezes"),
+})
+
+export const copyAddressSchema = z.object({ familiaId: id, membroId: id })
+
 export const SITUACOES_ALUNO = ["cursando", "concluido", "desistiu"] as const
 
 export const enrollmentSchema = z.object({

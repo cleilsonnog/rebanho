@@ -52,6 +52,7 @@ model Church {
   schools       School[]
   schoolClasses SchoolClass[]
   schoolLessons SchoolLesson[]
+  families      Family[]
 }
 
 enum UserRole {
@@ -139,6 +140,10 @@ model Member {
   /// Célula que a pessoa frequenta (uma por pessoa).
   cellId         String?
   cell           Cell?         @relation(fields: [cellId], references: [id], onDelete: SetNull)
+  /// Família (casal, filhos…); uma por pessoa. O parentesco diz o lugar dela na família.
+  familyId       String?
+  family         Family?       @relation(fields: [familyId], references: [id], onDelete: SetNull)
+  parentesco     Parentesco?
 
   nome        String
   sexo        Sexo
@@ -177,6 +182,27 @@ model Member {
 
   @@index([churchId, nome])
   @@index([churchId, status])
+  @@index([familyId])
+}
+
+enum Parentesco {
+  responsavel
+  conjuge
+  filho
+  outro
+}
+
+/// Família: liga casal, filhos e outros parentes. A família some quando fica sem ninguém.
+model Family {
+  id        String   @id @default(cuid())
+  churchId  String
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  nome      String
+  createdAt DateTime @default(now())
+
+  members Member[]
+
+  @@index([churchId])
 }
 
 model Visit {

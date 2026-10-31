@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { CARGOS } from "@/lib/seed"
-import { STATUS_LABEL, age, whatsappLink } from "@/lib/format"
+import { PARENTESCO_LABEL, STATUS_LABEL, age, whatsappLink } from "@/lib/format"
 import { notify } from "@/hooks/use-form-action"
 import { canWrite } from "@/lib/permissions"
 import { useApp } from "@/lib/store"
@@ -28,11 +28,12 @@ import type { Member, MemberStatus } from "@/lib/types"
 
 const PAGE_SIZE = 15
 
-function toCSV(members: Member[]) {
-  const header = ["Nome", "Sexo", "Nascimento", "Telefone", "E-mail", "Bairro", "Cidade", "Congregação", "Cargo", "Situação", "Batizado"]
+function toCSV(members: Member[], familia: (m: Member) => string) {
+  const header = ["Nome", "Sexo", "Nascimento", "Telefone", "E-mail", "Bairro", "Cidade", "Congregação", "Cargo", "Situação", "Batizado", "Família", "Parentesco"]
   const rows = members.map((m) => [
     m.nome, m.sexo, m.nascimento, m.telefone, m.email, m.endereco.bairro, m.endereco.cidade,
     m.congregacao, m.cargo, STATUS_LABEL[m.status], m.batizado ? "Sim" : "Não",
+    familia(m), m.parentesco ? PARENTESCO_LABEL[m.parentesco] : "",
   ])
   return [header, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n")
 }
@@ -40,6 +41,11 @@ function toCSV(members: Member[]) {
 export default function MembrosPage() {
   const router = useRouter()
   const members = useApp((s) => s.members)
+  const families = useApp((s) => s.families)
+  const nomeFamilia = React.useMemo(() => {
+    const nomes = new Map(families.map((f) => [f.id, f.nome]))
+    return (m: Member) => (m.familiaId ? (nomes.get(m.familiaId) ?? "") : "")
+  }, [families])
   const congregacoes = useApp((s) => s.church.congregacoes)
   const removeMember = useApp((s) => s.removeMember)
   const pode = useApp((s) => canWrite(s.me.papel, "membros"))
@@ -65,16 +71,17 @@ export default function MembrosPage() {
           !term ||
           m.nome.toLowerCase().includes(term) ||
           m.telefone.replace(/\D/g, "").includes(term.replace(/\D/g, "") || "§") ||
-          m.endereco.bairro.toLowerCase().includes(term)
+          m.endereco.bairro.toLowerCase().includes(term) ||
+          nomeFamilia(m).toLowerCase().includes(term)
       )
       .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
-  }, [members, q, status, cong, cargo])
+  }, [members, q, status, cong, cargo, nomeFamilia])
 
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const visible = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
   function exportCSV() {
-    const blob = new Blob(["﻿" + toCSV(filtered)], { type: "text/csv;charset=utf-8" })
+    const blob = new Blob(["﻿" + toCSV(filtered, nomeFamilia)], { type: "text/csv;charset=utf-8" })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
@@ -85,7 +92,7 @@ export default function MembrosPage() {
 
   return (
     <>
-      <PageHeader title="Membros" description={`${members.length} pessoas cadastradas`}>
+      <PageHeader title="Membros" description={`${members.length} pessoas cadastradas${families.length ? ` · ${families.length} famílias` : ""}`}>
         {/* Exportar tira os dados do sistema: só quem já vê o cadastro completo. */}
         {pode && <Button variant="outline" onClick={exportCSV}><Download /> Exportar</Button>}
         {pode && <Button variant="outline" asChild><Link href="/app/importar"><Upload /> Importar</Link></Button>}
@@ -96,7 +103,7 @@ export default function MembrosPage() {
         <div className="flex flex-col gap-2 border-b p-4 lg:flex-row">
           <div className="relative flex-1">
             <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={q} onChange={(e) => resetting(setQ)(e.target.value)} placeholder="Buscar por nome, telefone ou bairro" className="pl-8" />
+            <Input value={q} onChange={(e) => resetting(setQ)(e.target.value)} placeholder="Buscar por nome, telefone, bairro ou família" className="pl-8" />
           </div>
           <div className="grid grid-cols-3 gap-2 lg:flex">
             <Select value={status} onValueChange={resetting((v: string) => setStatus(v as typeof status))}>

@@ -12,6 +12,7 @@ import type {
   CellStudy,
   Church,
   ChurchEvent,
+  Family,
   Filial,
   IssuedCertificate,
   Member,
@@ -50,8 +51,12 @@ export function toMember(r: P.Member & { congregation: { nome: string } | null }
     dataBatismo: toISOOpt(r.dataBatismo),
     membroDesde: toISO(r.membroDesde),
     observacoes: r.observacoes ?? undefined,
+    familiaId: r.familyId ?? undefined,
+    parentesco: r.parentesco ?? undefined,
   }
 }
+
+export const toFamily = (r: P.Family): Family => ({ id: r.id, nome: r.nome })
 
 export const toVisit = (r: P.Visit): Visit => ({
   id: r.id,
@@ -299,9 +304,11 @@ export async function loadAppData({ church, user }: Session): Promise<AppData> {
   const turmas = { churchId, ...turmasVisiveis(user) }
   const professorSo = Object.keys(turmasVisiveis(user)).length > 0
 
-  const [filiais, members, visits, transactions, events, certificates, cells, cellMeetings, cellStudies, schools, schoolClasses, schoolLessons, users] = await Promise.all([
+  const [filiais, members, families, visits, transactions, events, certificates, cells, cellMeetings, cellStudies, schools, schoolClasses, schoolLessons, users] = await Promise.all([
     loadFiliais(church),
     db.member.findMany({ where: membrosWhere, include: memberInclude, orderBy: { nome: "asc" } }),
+    // Só as famílias de quem a pessoa vê (o líder, as da célula; a filial, as da filial).
+    db.family.findMany({ where: { churchId, members: { some: membrosWhere } }, orderBy: { nome: "asc" } }),
     pode("visitas") ? db.visit.findMany({ where: dosMembros, orderBy: { data: "desc" } }) : [],
     pode("financeiro") ? db.transaction.findMany({ where: { churchId }, orderBy: { data: "desc" } }) : [],
     db.event.findMany({ where: { churchId }, orderBy: [{ data: "asc" }, { hora: "asc" }] }),
@@ -328,6 +335,7 @@ export async function loadAppData({ church, user }: Session): Promise<AppData> {
     me: toUser({ ...user, congregation: filiais.find((f) => f.id === filialDe(user)) ?? null }),
     church: toChurch(church, filiais),
     members: members.map((m) => protegerMembro(toMember(m), escopo)),
+    families: families.map(toFamily),
     visits: visits.map(toVisit),
     transactions: transactions.map(toTransaction),
     events: events.map(toEvent),

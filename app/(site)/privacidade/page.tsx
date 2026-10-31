@@ -28,8 +28,8 @@ export default function PrivacidadePage() {
           <li>
             <strong>Dados dos membros</strong>, cadastrados pela igreja: nome, contato, endereço, datas (nascimento,
             batismo, membresia), cargo, ministérios, visitas pastorais, contribuições, certificados, a célula que
-            frequentam, com a presença em cada reunião, e as escolas da igreja que cursam (turma, presença nas aulas e
-            conclusão).
+            frequentam, com a presença em cada reunião, as escolas da igreja que cursam (turma, presença nas aulas e
+            conclusão) e a família de que fazem parte na igreja (quem é cônjuge, filho ou outro parente).
           </li>
           <li>
             <strong>Visitantes de células</strong>, lançados pelo líder: nome e, se informado, telefone.

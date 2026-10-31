@@ -7,7 +7,7 @@ import { seedCertificates, seedChurch, seedEvents, seedMembers, seedTransactions
 
 const date = (iso: string) => new Date(`${iso}T00:00:00Z`)
 
-/** Apaga escolas, estudos, células, membros, visitas, lançamentos, eventos, certificados e congregações da igreja. */
+/** Apaga famílias, escolas, estudos, células, membros, visitas, lançamentos, eventos, certificados e congregações da igreja. */
 export async function clearChurchData(tx: Prisma.TransactionClient, churchId: string) {
   const where = { churchId }
   // Quem tinha acesso só a uma filial fica desativado (as filiais vão ser apagadas): o admin reativa e
@@ -20,6 +20,7 @@ export async function clearChurchData(tx: Prisma.TransactionClient, churchId: st
   await tx.certificate.deleteMany({ where })
   await tx.transaction.deleteMany({ where })
   await tx.member.deleteMany({ where })
+  await tx.family.deleteMany({ where })
   await tx.event.deleteMany({ where })
   await tx.congregation.deleteMany({ where })
 }
@@ -80,6 +81,7 @@ export async function insertDemoData(tx: Prisma.TransactionClient, churchId: str
 
   await insertDemoCells(tx, churchId, (id) => memberId.get(id)!)
   await insertDemoSchools(tx, churchId, (id) => memberId.get(id)!)
+  await insertDemoFamilies(tx, churchId, (id) => memberId.get(id)!)
   await tx.cellStudy.createMany({ data: ESTUDOS.map(({ semana, ...e }) => ({ ...e, churchId, semana: date(semana) })) })
 }
 
@@ -287,6 +289,53 @@ async function insertDemoSchools(tx: Prisma.TransactionClient, churchId: string,
           data: dia,
           presencas: { create: presentes.map((m) => ({ memberId: novoId(m.id) })) },
         },
+      })
+    }
+  }
+}
+
+/**
+ * Algumas famílias com os membros de exemplo: casais com filhos, casal sem filhos e mãe com filho.
+ * A família mora junto: todos ficam com o endereço do responsável.
+ */
+async function insertDemoFamilies(tx: Prisma.TransactionClient, churchId: string, novoId: (seedId: string) => string) {
+  const livres = seedMembers.filter((m) => m.status !== "transferido")
+  const usados = new Set<string>()
+  const pegar = (f: (m: (typeof livres)[number]) => boolean) => {
+    const m = livres.find((x) => !usados.has(x.id) && f(x))
+    if (m) usados.add(m.id)
+    return m
+  }
+  const adulto = (sexo: "M" | "F", estadoCivil?: string) => (m: (typeof livres)[number]) =>
+    m.sexo === sexo && m.nascimento <= "1996-01-01" && m.nascimento >= "1966-01-01" && (!estadoCivil || m.estadoCivil === estadoCivil)
+  const crianca = (m: (typeof livres)[number]) => m.nascimento > "2008-11-01"
+
+  const composicoes: { responsavel: "M" | "F"; conjuge: boolean; filhos: number }[] = [
+    { responsavel: "M", conjuge: true, filhos: 2 },
+    { responsavel: "M", conjuge: true, filhos: 1 },
+    { responsavel: "M", conjuge: true, filhos: 3 },
+    { responsavel: "M", conjuge: true, filhos: 0 },
+    { responsavel: "F", conjuge: false, filhos: 1 },
+  ]
+  for (const c of composicoes) {
+    const resp = pegar(adulto(c.responsavel, c.conjuge ? "casado" : undefined))
+    if (!resp) continue
+    const conj = c.conjuge ? pegar(adulto(c.responsavel === "M" ? "F" : "M", "casado")) : undefined
+    const filhos = Array.from({ length: c.filhos }, () => pegar(crianca)).filter((m) => !!m)
+    const sobrenome = resp.nome.split(" ").at(-1)
+    const familia = await tx.family.create({ data: { churchId, nome: `Família ${sobrenome}` } })
+    const pessoas = [
+      { m: resp, parentesco: "responsavel" as const },
+      ...(conj ? [{ m: conj, parentesco: "conjuge" as const }] : []),
+      ...filhos.map((m) => ({ m, parentesco: "filho" as const })),
+    ]
+    // Os filhos levam os sobrenomes do responsável, para a família de exemplo parecer de verdade.
+    const sobrenomes = resp.nome.split(" ").slice(1).join(" ")
+    for (const { m, parentesco } of pessoas) {
+      const nome = parentesco === "filho" ? `${m.nome.split(" ")[0]} ${sobrenomes}` : undefined
+      await tx.member.update({
+        where: { id: novoId(m.id) },
+        data: { familyId: familia.id, parentesco, nome, ...resp.endereco, lat: resp.lat, lng: resp.lng },
       })
     }
   }

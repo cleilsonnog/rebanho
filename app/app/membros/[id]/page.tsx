@@ -3,19 +3,88 @@
 import * as React from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
-import { ArrowLeft, Award, CalendarClock, GraduationCap, HeartHandshake, IdCard, MapPin, MessageCircle, Pencil, Phone, Mail } from "lucide-react"
+import { ArrowLeft, Award, CalendarClock, GraduationCap, HeartHandshake, Home, IdCard, MapPin, MessageCircle, Pencil, Phone, Mail, Unlink, Users } from "lucide-react"
+import { toast } from "sonner"
 
+import { FamilyFormDialog } from "@/components/app/family-form"
 import { MemberAvatar, StatusBadge } from "@/components/app/member-avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { SITUACAO_ALUNO_LABEL, age, formatBRL, formatDate, whatsappLink } from "@/lib/format"
+import { notify } from "@/hooks/use-form-action"
+import { PARENTESCO_LABEL, SITUACAO_ALUNO_LABEL, age, formatBRL, formatDate, whatsappLink } from "@/lib/format"
 import { canRead, canWrite, memberScope } from "@/lib/permissions"
 import { useApp, useMember } from "@/lib/store"
+import type { Member } from "@/lib/types"
 
 const ESTADO_CIVIL = { solteiro: "Solteiro(a)", casado: "Casado(a)", divorciado: "Divorciado(a)", viuvo: "Viúvo(a)" }
+
+/** Família da pessoa: quem faz parte, com o parentesco. Quem cuida dos membros monta, edita e copia o endereço. */
+function FamiliaCard({ m, podeEditar, comEndereco }: { m: Member; podeEditar: boolean; comEndereco: boolean }) {
+  const familia = useApp((s) => s.families.find((f) => f.id === m.familiaId))
+  const members = useApp((s) => s.members)
+  const removeFamily = useApp((s) => s.removeFamily)
+  const copyFamilyAddress = useApp((s) => s.copyFamilyAddress)
+  const [form, setForm] = React.useState(false)
+  const parentes = familia ? members.filter((x) => x.familiaId === familia.id) : []
+  const ordem = Object.keys(PARENTESCO_LABEL)
+  parentes.sort((a, b) => ordem.indexOf(a.parentesco ?? "outro") - ordem.indexOf(b.parentesco ?? "outro") || a.nascimento.localeCompare(b.nascimento))
+
+  if (!familia && !podeEditar) return null
+
+  async function copiar() {
+    if (!familia || !confirm(`Copiar o endereço de ${m.nome} para as outras pessoas da ${familia.nome}?`)) return
+    const r = await copyFamilyAddress({ familiaId: familia.id, membroId: m.id })
+    if (r.ok) toast.success(`Endereço copiado para ${r.data.ids.length} pessoa(s)`)
+    else toast.error(r.error)
+  }
+  async function desfazer() {
+    if (!familia || !confirm(`Desfazer a ${familia.nome}? As pessoas continuam cadastradas, só deixam de estar ligadas.`)) return
+    await notify(removeFamily(familia.id), "Família desfeita")
+  }
+
+  return (
+    <Card className="lg:col-span-3">
+      <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
+        <CardTitle className="flex items-center gap-2"><Users className="size-5 text-primary" /> {familia?.nome ?? "Família"}</CardTitle>
+        {podeEditar && (
+          <div className="flex flex-wrap gap-2">
+            {familia && comEndereco && parentes.length > 1 && (
+              <Button variant="outline" size="sm" onClick={copiar}><Home /> Copiar este endereço para a família</Button>
+            )}
+            {familia && <Button variant="outline" size="sm" onClick={desfazer}><Unlink /> Desfazer</Button>}
+            <Button size="sm" variant={familia ? "default" : "outline"} onClick={() => setForm(true)}>
+              {familia ? <><Pencil /> Editar família</> : <><Users /> Adicionar a uma família</>}
+            </Button>
+          </div>
+        )}
+      </CardHeader>
+      <CardContent>
+        {!familia ? (
+          <p className="text-sm text-muted-foreground">Ainda não faz parte de uma família.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {parentes.map((p) => (
+              <Link
+                key={p.id}
+                href={`/app/membros/${p.id}`}
+                aria-current={p.id === m.id ? "page" : undefined}
+                className="flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm hover:border-primary/50 aria-[current=page]:border-primary aria-[current=page]:bg-primary/5"
+              >
+                <MemberAvatar nome={p.nome} className="size-7 text-[10px]" />
+                <span className="font-medium">{p.nome}</span>
+                <span className="text-muted-foreground">{PARENTESCO_LABEL[p.parentesco ?? "outro"]} · {age(p.nascimento)} anos</span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </CardContent>
+      {form && <FamilyFormDialog open onOpenChange={setForm} familiaId={familia?.id} membroId={m.id} />}
+    </Card>
+  )
+}
 
 function Info({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -163,6 +232,7 @@ export default function MembroPage() {
             </CardContent>
             )}
           </Card>
+          <FamiliaCard m={m} podeEditar={podeEditar} comEndereco={memberScope(papel) === "completo"} />
         </TabsContent>
 
         <TabsContent value="visitas">

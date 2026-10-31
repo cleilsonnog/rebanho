@@ -51,7 +51,7 @@ const depoimentos = [
 ]
 
 const planoItens = [
-  "Membros ilimitados",
+  "Membros ilimitados, organizados por família",
   "Controle de visitantes e visitas pastorais",
   "Aniversários automáticos no WhatsApp",
   "Carteirinha com QR Code",
