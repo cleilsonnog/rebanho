@@ -103,6 +103,29 @@ describe("convites e logo sem o Clerk", () => {
     expect(await inviteUser({ nome: "De novo", email: email("LIDER0"), papel: "pastor" })).toEqual({ ok: false, error: "Esse e-mail já está na equipe desta igreja." })
   })
 
+  it("líder convidado já entra na célula escolhida, respeitando 2 líderes por célula", async () => {
+    const celula = await db.cell.findFirstOrThrow({ where: { churchId: a.id }, include: { leaders: true } })
+    // As células de exemplo têm casal de colíderes: abre uma vaga.
+    const colider = celula.leaders.find((l) => l.funcao === "colider")!
+    await db.cellLeader.delete({ where: { cellId_memberId_funcao: { cellId: celula.id, memberId: colider.memberId, funcao: "colider" } } })
+    const livre = await db.member.findFirstOrThrow({ where: { churchId: a.id, cellRoles: { none: {} } } })
+    const r = await inviteUser({ nome: "Líder novo", email: email("lider-celula"), papel: "lider", memberId: livre.id, celulaId: celula.id, funcaoCelula: "colider" })
+    if (!r.ok) throw new Error(r.error)
+    expect(await db.cellLeader.findMany({ where: { cellId: celula.id, memberId: livre.id } })).toMatchObject([{ funcao: "colider" }])
+
+    // A célula de exemplo tem casal de líderes: um terceiro líder é recusado.
+    expect(celula.leaders.filter((l) => l.funcao === "lider")).toHaveLength(2)
+    const outro = await db.member.findFirstOrThrow({ where: { churchId: a.id, cellRoles: { none: {} } } })
+    const cheio = await inviteUser({ nome: "Terceiro", email: email("terceiro"), papel: "lider", memberId: outro.id, celulaId: celula.id, funcaoCelula: "lider" })
+    expect(cheio).toEqual({ ok: false, error: `A célula ${celula.nome} já tem 2 líderes. Escolha outra função ou outra célula.` })
+    expect(await db.churchUser.findFirst({ where: { email: email("terceiro") } })).toBeNull()
+
+    // Célula de outra igreja não serve.
+    const deB = await db.cell.findFirstOrThrow({ where: { churchId: b.id } })
+    expect((await inviteUser({ nome: "X", email: email("x-celula"), papel: "lider", memberId: outro.id, celulaId: deB.id })).ok).toBe(false)
+    expect(await db.cellLeader.count({ where: { cellId: deB.id, memberId: outro.id } })).toBe(0)
+  })
+
   it("remover tira o acesso na hora", async () => {
     const u = await db.churchUser.findFirstOrThrow({ where: { churchId: a.id, email: email("ana") } })
     expect((await removeUser(u.id)).ok).toBe(true)

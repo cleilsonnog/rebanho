@@ -294,7 +294,17 @@ function createAppStore(data: AppData) {
     loadDemoData: () => church.loadDemoData(),
     clearData: (confirmacao) => church.clearData(confirmacao),
 
-    addUser: (u) => apply(users.inviteUser(u), (user) => set((s) => ({ users: [...s.users, user] }))),
+    // O líder convidado com célula já entra como líder ou colíder dela (o servidor faz o mesmo).
+    addUser: (u) =>
+      apply(users.inviteUser(u), (user) =>
+        set((s) => {
+          const campo = u.funcaoCelula === "colider" ? "colideres" : "lideres"
+          const cells = s.cells.map((c) =>
+            c.id === u.celulaId && user.memberId && !c[campo].includes(user.memberId) ? { ...c, [campo]: [...c[campo], user.memberId] } : c
+          )
+          return { users: [...s.users, user], cells }
+        })
+      ),
     updateUser: (id, u) =>
       apply(users.updateUser(id, u), (user) => set((s) => ({ users: s.users.map((x) => (x.id === id ? user : x)) }))),
     removeUser: (id) => apply(users.removeUser(id), () => set((s) => ({ users: s.users.filter((x) => x.id !== id) }))),

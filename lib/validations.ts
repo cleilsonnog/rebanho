@@ -291,6 +291,9 @@ export const inviteSchema = z
     memberId: id.optional(),
     /** Nome da filial a que o acesso fica restrito; vazio = igreja toda. */
     congregacao: opcional(100),
+    /** Líder de célula: já entra como líder ou colíder desta célula. */
+    celulaId: id.optional(),
+    funcaoCelula: z.enum(["lider", "colider"]).optional(),
   })
   .refine((u) => u.papel !== "lider" || u.memberId, {
     path: ["memberId"],

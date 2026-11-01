@@ -170,6 +170,8 @@ function UsuariosTab() {
   const [memberId, setMemberId] = React.useState<string>()
   const [acesso, setAcesso] = React.useState("")
   const [convite, setConvite] = React.useState<AppUser>()
+  const [celulaId, setCelulaId] = React.useState("")
+  const [funcaoCelula, setFuncaoCelula] = React.useState<"lider" | "colider">("lider")
   const filiais = useApp((s) => s.church.congregacoes)
   const temFilial = (p: UserRole) => p === "secretaria" || p === "pastor"
   const members = useApp((s) => s.members)
@@ -206,6 +208,8 @@ function UsuariosTab() {
                     papel,
                     memberId: papel === "lider" ? memberId : undefined,
                     congregacao: temFilial(papel) ? acesso : undefined,
+                    celulaId: papel === "lider" && celulaId ? celulaId : undefined,
+                    funcaoCelula: papel === "lider" && celulaId ? funcaoCelula : undefined,
                   }
                   submit(inviteSchema, convite, () => addUser(convite), (u) => {
                     setConvite(u)
@@ -214,6 +218,8 @@ function UsuariosTab() {
                     setEmail("")
                     setMemberId(undefined)
                     setAcesso("")
+                    setCelulaId("")
+                    setFuncaoCelula("lider")
                   })
                 }}
               >
@@ -243,8 +249,42 @@ function UsuariosTab() {
                       <FieldLabel>Cadastro de membro do líder</FieldLabel>
                       <MemberPicker value={memberId} onChange={escolherMembro} placeholder="Quem é o líder no cadastro" />
                       <FieldDescription>Ele verá e cuidará só das células em que for líder ou colíder.</FieldDescription>
-                      {semCelula(memberId) && <FieldDescription className="text-amber-700 dark:text-amber-400">{AVISO_SEM_CELULA}</FieldDescription>}
+                      {semCelula(memberId) && !celulaId && <FieldDescription className="text-amber-700 dark:text-amber-400">{AVISO_SEM_CELULA}</FieldDescription>}
                       <FieldError>{errors.memberId}</FieldError>
+                    </Field>
+                  )}
+                  {papel === "lider" && (
+                    <Field>
+                      <FieldLabel>Célula</FieldLabel>
+                      <div className="grid grid-cols-[1fr_auto] gap-2">
+                        <Select value={celulaId || "nenhuma"} onValueChange={(v) => setCelulaId(v === "nenhuma" ? "" : v)}>
+                          <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="nenhuma">Escolher depois (em Células)</SelectItem>
+                            {cells.map((c) => (
+                              <SelectItem key={c.id} value={c.id}>{c.nome}{c.congregacao ? ` · ${c.congregacao}` : ""}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select value={funcaoCelula} onValueChange={(v) => setFuncaoCelula(v as "lider" | "colider")} disabled={!celulaId}>
+                          <SelectTrigger className="w-32" aria-label="Função na célula"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="lider">Líder</SelectItem>
+                            <SelectItem value="colider">Colíder</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {(() => {
+                        const c = cells.find((x) => x.id === celulaId)
+                        const atuais = c ? (funcaoCelula === "lider" ? c.lideres : c.colideres).filter((id) => id !== memberId) : []
+                        return c && atuais.length > 0 ? (
+                          <FieldDescription>
+                            {funcaoCelula === "lider" ? "Líderes" : "Colíderes"} hoje: {atuais.map(nomeDe).join(" e ")}
+                            {atuais.length >= 2 && <span className="text-destructive"> · já tem 2, escolha outra função ou célula</span>}
+                          </FieldDescription>
+                        ) : null
+                      })()}
+                      <FieldError>{errors.celulaId}</FieldError>
                     </Field>
                   )}
                   <Field><FieldLabel htmlFor="unome">Nome</FieldLabel><Input {...invalid("nome")} id="unome" value={nome} onChange={(e) => setNome(e.target.value)} required /><FieldError>{errors.nome}</FieldError></Field>
@@ -295,6 +335,11 @@ function UsuariosTab() {
                         onChange={(id) => notify(updateUser(u.id, { memberId: id }), `Ligado ao cadastro de ${nomeDe(id)}`)}
                         placeholder="Ligar ao cadastro"
                       />
+                      {u.memberId && !semCelula(u.memberId) && (
+                        <p className="mt-1 text-xs whitespace-normal text-muted-foreground">
+                          Lidera: {cells.filter((c) => c.lideres.includes(u.memberId!) || c.colideres.includes(u.memberId!)).map((c) => c.nome).join(", ")}
+                        </p>
+                      )}
                       {(!u.memberId || semCelula(u.memberId)) && (
                         <p className="mt-1 text-xs whitespace-normal text-amber-700 dark:text-amber-400">
                           {u.memberId ? AVISO_SEM_CELULA : "Ligue ao cadastro de membro: sem isso o líder não vê ninguém."}

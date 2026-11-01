@@ -23,17 +23,32 @@ async function filialId(churchId: string, nome: string | null | undefined, papel
 }
 
 export async function inviteUser(input: z.input<typeof inviteSchema>) {
-  return secureAction(null, inviteSchema, input, async ({ nome, email, papel, memberId, congregacao }, { church }, registrar) => {
+  return secureAction(null, inviteSchema, input, async ({ nome, email, papel, memberId, congregacao, celulaId, funcaoCelula = "lider" }, { church }, registrar) => {
     if (memberId) await assertMembers(church.id, [memberId])
+    // Líder de célula já entra na célula escolhida (no máximo 2 líderes e 2 colíderes por célula).
+    const celula = papel === "lider" && memberId && celulaId
+      ? await db.cell.findFirst({ where: { id: celulaId, churchId: church.id }, include: { leaders: true } })
+      : null
+    if (papel === "lider" && celulaId && !celula) throw new ActionError("Célula não encontrada.")
+    if (celula && !celula.leaders.some((l) => l.memberId === memberId && l.funcao === funcaoCelula)) {
+      if (celula.leaders.filter((l) => l.funcao === funcaoCelula).length >= 2)
+        throw new ActionError(`A célula ${celula.nome} já tem 2 ${funcaoCelula === "lider" ? "líderes" : "colíderes"}. Escolha outra função ou outra célula.`)
+    }
     const congregationId = await filialId(church.id, congregacao, papel)
     await limitar("convite", church.id)
     if (await db.churchUser.findFirst({ where: { churchId: church.id, email: email.toLowerCase() } }))
       throw new ActionError("Esse e-mail já está na equipe desta igreja.")
-    const row = await db.churchUser.create({
-      data: { churchId: church.id, nome, email: email.toLowerCase(), papel, memberId, congregationId },
-      include: userInclude,
-    })
-    registrar(`Convidou ${nome} (${email}) como ${ROLE_LABEL[papel]}`)
+    const [row] = await db.$transaction([
+      db.churchUser.create({
+        data: { churchId: church.id, nome, email: email.toLowerCase(), papel, memberId, congregationId },
+        include: userInclude,
+      }),
+      ...(celula && memberId
+        ? [db.cellLeader.createMany({ data: [{ cellId: celula.id, memberId, funcao: funcaoCelula }], skipDuplicates: true })]
+        : []),
+    ])
+    const onde = celula ? ` (${funcaoCelula === "lider" ? "líder" : "colíder"} da célula ${celula.nome})` : ""
+    registrar(`Convidou ${nome} (${email}) como ${ROLE_LABEL[papel]}${onde}`)
     return toUser(row)
   })
 }
