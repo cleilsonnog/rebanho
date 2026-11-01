@@ -174,6 +174,9 @@ function UsuariosTab() {
   const temFilial = (p: UserRole) => p === "secretaria" || p === "pastor"
   const members = useApp((s) => s.members)
   const nomeDe = (id?: string) => members.find((m) => m.id === id)?.nome
+  const cells = useApp((s) => s.cells)
+  const semCelula = (id?: string) => !!id && !cells.some((c) => c.lideres.includes(id) || c.colideres.includes(id))
+  const AVISO_SEM_CELULA = "Ainda não é líder nem colíder de nenhuma célula: não verá ninguém até ser colocado numa célula (em Células)."
 
   function escolherMembro(id: string) {
     const m = members.find((x) => x.id === id)
@@ -240,6 +243,7 @@ function UsuariosTab() {
                       <FieldLabel>Cadastro de membro do líder</FieldLabel>
                       <MemberPicker value={memberId} onChange={escolherMembro} placeholder="Quem é o líder no cadastro" />
                       <FieldDescription>Ele verá e cuidará só das células em que for líder ou colíder.</FieldDescription>
+                      {semCelula(memberId) && <FieldDescription className="text-amber-700 dark:text-amber-400">{AVISO_SEM_CELULA}</FieldDescription>}
                       <FieldError>{errors.memberId}</FieldError>
                     </Field>
                   )}
@@ -291,6 +295,11 @@ function UsuariosTab() {
                         onChange={(id) => notify(updateUser(u.id, { memberId: id }), `Ligado ao cadastro de ${nomeDe(id)}`)}
                         placeholder="Ligar ao cadastro"
                       />
+                      {(!u.memberId || semCelula(u.memberId)) && (
+                        <p className="mt-1 text-xs whitespace-normal text-amber-700 dark:text-amber-400">
+                          {u.memberId ? AVISO_SEM_CELULA : "Ligue ao cadastro de membro: sem isso o líder não vê ninguém."}
+                        </p>
+                      )}
                     </div>
                   )}
                 </TableCell>

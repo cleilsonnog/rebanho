@@ -40,6 +40,9 @@ export default function DashboardPage() {
   const papel = useApp((s) => s.me.papel)
   const estudo = useApp((s) => s.cellStudies.find((e) => e.semana === inicioDaSemana(TODAY.toISOString().slice(0, 10))))
   const primeiroNome = useApp((s) => s.me.nome.split(" ")[0])
+  const ligadoAoCadastro = useApp((s) => !!s.me.memberId)
+  // O líder recebe só as células que lidera (lib/data.ts › cellScope): sem nenhuma, o painel fica vazio.
+  const liderSemCelula = useApp((s) => s.me.papel === "lider" && s.cells.length === 0)
 
   const data = React.useMemo(() => {
     const ativos = members.filter((m) => m.status === "ativo")
@@ -118,6 +121,17 @@ export default function DashboardPage() {
             .
           </p>
           <Button size="sm" variant="outline" asChild><Link href="/app/configuracoes">Ir para Configurações</Link></Button>
+        </div>
+      )}
+
+      {liderSemCelula && (
+        <div className="mb-4 rounded-xl border border-highlight/40 bg-highlight/10 p-4 text-sm">
+          <p className="font-medium">Você ainda não vê nenhuma célula.</p>
+          <p className="mt-1 text-muted-foreground">
+            {ligadoAoCadastro
+              ? "Seu acesso é de líder de célula, mas você ainda não é líder nem colíder de nenhuma. Peça à secretaria para colocar você numa célula (em Células)."
+              : "Seu acesso de líder ainda não está ligado ao seu cadastro de membro. Peça ao administrador para ligar em Configurações › Usuários."}
+          </p>
         </div>
       )}
 

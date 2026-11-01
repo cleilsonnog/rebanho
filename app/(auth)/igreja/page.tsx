@@ -12,7 +12,8 @@ import { resolverAcesso } from "@/lib/portal"
 
 export const metadata: Metadata = { title: "Sua igreja" }
 
-// Escolha da igreja (quem faz parte de mais de uma) e cadastro de igreja nova. Convites da equipe feitos para
+// Escolha da igreja (quem faz parte de mais de uma) e cadastro de igreja nova (só para quem não é da equipe de
+// nenhuma igreja). Convites da equipe feitos para
 // o e-mail da conta são ligados aqui. Quem não é da equipe de nenhuma igreja, mas tem o portal liberado, vai
 // direto para o portal do membro.
 export default async function IgrejaPage() {
@@ -41,11 +42,15 @@ export default async function IgrejaPage() {
         </div>
       )}
 
-      <div className="rounded-xl border p-4">
-        <p className="mb-3 font-medium">{vinculos.length ? "Cadastrar outra igreja" : "Nova igreja"}</p>
-        <CriarIgreja />
-        <p className="mt-3 text-xs text-muted-foreground">Você será o administrador e pode convidar a equipe depois.</p>
-      </div>
+      {/* Cadastro de igreja só para quem ainda não é de nenhuma (quem chegou pela landing). Quem foi convidado
+          para a equipe já tem o seu papel numa igreja. */}
+      {vinculos.length === 0 && (
+        <div className="rounded-xl border p-4">
+          <p className="mb-3 font-medium">Nova igreja</p>
+          <CriarIgreja />
+          <p className="mt-3 text-xs text-muted-foreground">Você será o administrador e pode convidar a equipe depois.</p>
+        </div>
+      )}
 
       <div className="mt-6 flex flex-col items-center gap-2 text-sm text-muted-foreground">
         {temPortal && (
