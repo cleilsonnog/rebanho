@@ -41,6 +41,8 @@ export default function RootLayout({
       )}
     >
       <body>
+        {/* O Clerk faz só o login; igreja e equipe ficam no Rebanho. Se as organizações ainda estiverem ligadas no
+            painel do Clerk, a "escolha de organização" dele cai na nossa tela /igreja. */}
         <ClerkProvider
           localization={ptBR}
           appearance={{ theme: shadcn }}

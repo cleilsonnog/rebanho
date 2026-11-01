@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useClerk, useOrganization, useUser } from "@clerk/nextjs"
+import { useClerk, useUser } from "@clerk/nextjs"
 import {
   ArrowLeftRight,
   Award,
@@ -101,12 +101,14 @@ const VISIVEL: Record<string, (papel: UserRole, professor: boolean) => boolean> 
 
 export function AppSidebar() {
   const pathname = usePathname()
+  // Nome, e-mail e igreja vêm do Rebanho; do Clerk só a foto da conta (se houver).
   const { user } = useUser()
-  const { organization } = useOrganization()
   const { signOut } = useClerk()
-  const papel = useApp((s) => s.me.papel)
+  const me = useApp((s) => s.me)
+  const igreja = useApp((s) => s.church.nome)
+  const papel = me.papel
   const professor = useApp((s) => s.schoolClasses.length > 0)
-  const nome = user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? ""
+  const nome = me.nome || me.email
   const birthdays = useApp(
     (s) => s.members.filter((m) => m.status !== "transferido" && daysUntilBirthday(m.nascimento) <= 7).length
   )
@@ -123,7 +125,7 @@ export function AppSidebar() {
                 <ChurchLogo className="size-8 shrink-0 rounded-md" fallback={<LogoMark className="size-8 shrink-0" />} />
                 <div className="grid flex-1 text-left leading-tight">
                   <span className="truncate font-heading text-base font-semibold">Rebanho</span>
-                  <span className="truncate text-xs text-muted-foreground">{organization?.name}</span>
+                  <span className="truncate text-xs text-muted-foreground">{igreja}</span>
                 </div>
               </Link>
             </SidebarMenuButton>
@@ -164,7 +166,7 @@ export function AppSidebar() {
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-medium">{nome}</span>
-                    <span className="truncate text-xs text-muted-foreground">{user?.primaryEmailAddress?.emailAddress}</span>
+                    <span className="truncate text-xs text-muted-foreground">{me.email}</span>
                   </div>
                   <ChevronsUpDown className="ml-auto size-4" />
                 </SidebarMenuButton>

@@ -56,7 +56,7 @@ export default function PrivacidadePage() {
             pessoa) é consultado no Nominatim, do OpenStreetMap, e na BrasilAPI. Para os membros, só o bairro e a cidade
             são consultados. As imagens do mapa vêm do OpenStreetMap.
           </li>
-          <li>A logo da igreja fica guardada no Clerk, junto com a organização da igreja.</li>
+          <li>A logo da igreja fica guardada no nosso banco de dados (logos enviadas antes de novembro de 2026 ficaram no Clerk).</li>
         </ul>
       </Secao>
 

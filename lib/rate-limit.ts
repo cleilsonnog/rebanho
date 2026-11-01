@@ -11,14 +11,16 @@ import { db } from "./db"
 export const LIMITES = {
   /** Qualquer Server Action, por usuário. */
   escrita: { max: 60, segundos: 60 },
-  /** Convites por e-mail, por igreja (o Clerk aceita 250/hora para o app inteiro). */
-  convite: { max: 10, segundos: 3600 },
+  /** Convites da equipe, por igreja (dá para convidar todos os líderes de célula de uma vez). */
+  convite: { max: 60, segundos: 3600 },
   /** Importação de planilha (até 1000 linhas cada), por usuário. */
   importacao: { max: 10, segundos: 3600 },
   /** Apagar tudo e carregar dados de exemplo, por igreja. */
   demo: { max: 3, segundos: 3600 },
   /** Busca da posição de um endereço no mapa (serviços grátis com uso justo), por igreja. */
   geocodificacao: { max: 20, segundos: 60 },
+  /** Cadastro de igreja nova, por conta. */
+  igreja: { max: 3, segundos: 3600 },
   /** Pedidos do membro no portal (correção de dados), por conta. */
   portal: { max: 10, segundos: 3600 },
   /** Página pública da carteirinha, por IP. */

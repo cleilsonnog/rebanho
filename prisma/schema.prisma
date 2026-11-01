@@ -10,6 +10,8 @@ datasource db {
 /// Cada igreja é um tenant. Será ligada à organização do Clerk por `clerkOrgId`.
 model Church {
   id         String  @id @default(cuid())
+  /// Organização do Clerk das igrejas criadas antes de 01/11/2026. Não é mais usada: a igreja e a equipe ficam
+  /// só no banco (o Clerk limita as pessoas por organização e o número de organizações).
   clerkOrgId String? @unique
   nome       String
   sigla      String  @default("")
@@ -58,6 +60,16 @@ model Church {
   schoolLessons SchoolLesson[]
   families      Family[]
   correcoes     MemberCorrection[]
+  logo          ChurchLogo?
+}
+
+/// Logo da igreja (até 1 MB), servida em /logo/[churchId]. Fica fora de Church para não ir junto em toda consulta.
+model ChurchLogo {
+  churchId  String   @id
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  dados     Bytes
+  tipo      String
+  updatedAt DateTime @updatedAt
 }
 
 enum UserRole {
@@ -74,8 +86,9 @@ model ChurchUser {
   id                String        @id @default(cuid())
   churchId          String
   church            Church        @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  /// Preenchido no primeiro acesso; antes disso o convite está pendente.
+  /// Preenchido no primeiro acesso (login com o e-mail do convite); antes disso o convite está pendente.
   clerkUserId       String?
+  /// Convite da organização do Clerk, de antes de 01/11/2026. Não é mais usado.
   clerkInvitationId String?
   nome              String
   email             String

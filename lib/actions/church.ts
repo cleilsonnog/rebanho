@@ -1,7 +1,6 @@
 "use server"
 
 import { z } from "zod"
-import { clerkClient } from "@clerk/nextjs/server"
 
 import { secureAction } from "../action"
 import { db } from "../db"
@@ -27,14 +26,6 @@ export async function updateChurch(input: z.input<typeof churchSchema>) {
 
     const row = await db.church.update({ where: { id: church.id }, data: { ...c, ...endereco, ...posicao } })
     registrar("Alterou os dados da igreja")
-
-    // Mantém o nome da organização no Clerk igual ao da igreja (aparece no seletor de igrejas).
-    if (c.nome !== church.nome && church.clerkOrgId) {
-      const clerk = await clerkClient()
-      await clerk.organizations.updateOrganization(church.clerkOrgId, { name: c.nome }).catch((e) => {
-        console.error("[updateChurch] Clerk", e)
-      })
-    }
     return toChurch(row, await loadFiliais(row))
   })
 }
@@ -143,24 +134,28 @@ const logoSchema = z
   .refine((f) => ["image/png", "image/jpeg", "image/webp"].includes(f.type), "Use uma imagem PNG, JPG ou WebP")
   .refine((f) => f.size <= 1_000_000, "A imagem deve ter no máximo 1 MB")
 
-/** Envia a logo para a organização no Clerk (que guarda a imagem) e anota o endereço dela na igreja. */
+/**
+ * Guarda a logo no banco (ChurchLogo) e anota na igreja o endereço /logo/[id], com a versão no fim para o navegador
+ * não mostrar a antiga. Logos enviadas antes de 01/11/2026 ficaram no Clerk e continuam pelo endereço de lá.
+ */
 export async function updateLogo(form: FormData) {
-  return secureAction("configuracoes", logoSchema, form.get("logo"), async (file, { church, user }, registrar) => {
-    if (!church.clerkOrgId) throw new ActionError("Igreja sem organização no Clerk.")
-    const clerk = await clerkClient()
-    const org = await clerk.organizations.updateOrganizationLogo(church.clerkOrgId, {
-      file,
-      uploaderUserId: user.clerkUserId ?? undefined,
+  return secureAction("configuracoes", logoSchema, form.get("logo"), async (file, { church }, registrar) => {
+    const dados = new Uint8Array(await file.arrayBuffer())
+    const logo = await db.churchLogo.upsert({
+      where: { churchId: church.id },
+      create: { churchId: church.id, dados, tipo: file.type },
+      update: { dados, tipo: file.type },
     })
-    await db.church.update({ where: { id: church.id }, data: { logoUrl: org.imageUrl } })
+    const logoUrl = `/logo/${church.id}?v=${logo.updatedAt.getTime()}`
+    await db.church.update({ where: { id: church.id }, data: { logoUrl } })
     registrar("Trocou a logo da igreja")
-    return org.imageUrl
+    return logoUrl
   })
 }
 
 export async function removeLogo() {
   return secureAction("configuracoes", z.undefined(), undefined, async (_, { church }, registrar) => {
-    if (church.clerkOrgId) await (await clerkClient()).organizations.deleteOrganizationLogo(church.clerkOrgId)
+    await db.churchLogo.deleteMany({ where: { churchId: church.id } })
     await db.church.update({ where: { id: church.id }, data: { logoUrl: null } })
     registrar("Removeu a logo da igreja")
   })

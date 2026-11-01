@@ -6,13 +6,13 @@ import { loadAppData } from "@/lib/data"
 import { db } from "@/lib/db"
 import type { Church, Member } from "@/lib/generated/prisma/client"
 import { carregarPortal, resolverAcesso } from "@/lib/portal"
-import { loginDoPortal } from "@/lib/portal-login"
+import { contaLogada } from "@/lib/login"
 
 import { apagarIgrejasDeTeste, criarIgreja, criarUsuario, filialPorNome, logar } from "./helpers"
 
 // O login do membro no Clerk é simulado: cada teste escolhe os e-mails verificados da conta.
-vi.mock("@/lib/portal-login", () => ({ loginDoPortal: vi.fn() }))
-const entrarComo = (...emails: string[]) => vi.mocked(loginDoPortal).mockResolvedValue({ userId: `user-${emails[0]}`, emails })
+vi.mock("@/lib/login", () => ({ contaLogada: vi.fn() }))
+const entrarComo = (...emails: string[]) => vi.mocked(contaLogada).mockResolvedValue({ userId: `user-${emails[0]}`, nome: "Membro", emails })
 
 // Portal do membro: quem a conta vê sai do e-mail com o portal liberado (lib/portal.ts › resolverAcesso).
 // Cada pessoa vê a si mesma; casal com um e-mail só vê os dois; pais veem os filhos menores de 18 anos.
@@ -189,7 +189,7 @@ describe("pedido de correção", () => {
   })
 
   it("sem login não envia", async () => {
-    vi.mocked(loginDoPortal).mockResolvedValueOnce(null)
+    vi.mocked(contaLogada).mockResolvedValueOnce(null)
     expect(await requestCorrection(pedido(pai))).toMatchObject({ ok: false, error: "Sua sessão expirou. Entre novamente." })
   })
 

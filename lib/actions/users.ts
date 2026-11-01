@@ -1,8 +1,6 @@
 "use server"
 
 import type { z } from "zod"
-import { headers } from "next/headers"
-import { clerkClient } from "@clerk/nextjs/server"
 
 import { secureAction } from "../action"
 import { ActionError } from "../church"
@@ -12,7 +10,9 @@ import { ROLE_LABEL } from "../format"
 import { limitar } from "../rate-limit"
 import { idSchema, inviteSchema, updateUserSchema } from "../validations"
 
-// Gestão de usuários é só do admin (área `null` no secureAction).
+// Gestão de usuários é só do admin (área `null` no secureAction). O convite é só um registro com o e-mail:
+// a pessoa entra no Rebanho com esse e-mail (confirmado no login) e o acesso é ligado na hora (lib/church.ts ›
+// vincularConvites). O link vai pelo WhatsApp ou é copiado na tela; não há limite de pessoas por igreja.
 
 /** Id da filial pelo nome; vazio = igreja toda. A restrição por filial só vale para secretaria e pastor. */
 async function filialId(churchId: string, nome: string | null | undefined, papel: string) {
@@ -23,36 +23,18 @@ async function filialId(churchId: string, nome: string | null | undefined, papel
 }
 
 export async function inviteUser(input: z.input<typeof inviteSchema>) {
-  return secureAction(null, inviteSchema, input, async ({ nome, email, papel, memberId, congregacao }, { church, user }, registrar) => {
-    if (!church.clerkOrgId) throw new ActionError("Igreja sem organização no Clerk.")
+  return secureAction(null, inviteSchema, input, async ({ nome, email, papel, memberId, congregacao }, { church }, registrar) => {
     if (memberId) await assertMembers(church.id, [memberId])
     const congregationId = await filialId(church.id, congregacao, papel)
     await limitar("convite", church.id)
+    if (await db.churchUser.findFirst({ where: { churchId: church.id, email: email.toLowerCase() } }))
+      throw new ActionError("Esse e-mail já está na equipe desta igreja.")
     const row = await db.churchUser.create({
       data: { churchId: church.id, nome, email: email.toLowerCase(), papel, memberId, congregationId },
+      include: userInclude,
     })
-
-    // O link do e-mail volta para o login do Rebanho (o <SignIn /> trata o convite), e não para a página padrão do Clerk.
-    const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_APP_URL
-
-    try {
-      // No Clerk todos são membros comuns; a função de verdade fica no banco (ChurchUser.papel).
-      const convite = await (await clerkClient()).organizations.createOrganizationInvitation({
-        organizationId: church.clerkOrgId,
-        inviterUserId: user.clerkUserId ?? undefined,
-        emailAddress: email,
-        role: "org:member",
-        redirectUrl: origin ? `${origin}/entrar` : undefined,
-      })
-      registrar(`Convidou ${nome} (${email}) como ${ROLE_LABEL[papel]}`)
-      return toUser(
-        await db.churchUser.update({ where: { id: row.id }, data: { clerkInvitationId: convite.id }, include: userInclude })
-      )
-    } catch (e) {
-      await db.churchUser.delete({ where: { id: row.id } })
-      console.error("[inviteUser] Clerk", e)
-      throw new ActionError("Não foi possível enviar o convite. Confira se a pessoa já não faz parte da igreja.")
-    }
+    registrar(`Convidou ${nome} (${email}) como ${ROLE_LABEL[papel]}`)
+    return toUser(row)
   })
 }
 
@@ -84,21 +66,7 @@ export async function removeUser(id: string) {
     if (id === user.id) throw new ActionError("Você não pode remover a si mesmo.")
     const alvo = await db.churchUser.findUniqueOrThrow({ where: { id, churchId: church.id } })
 
-    if (church.clerkOrgId) {
-      const clerk = await clerkClient()
-      const organizationId = church.clerkOrgId
-      // Tira o acesso no Clerk também. Se já não existir lá, segue a remoção local.
-      await Promise.resolve(
-        alvo.clerkUserId
-          ? clerk.organizations.deleteOrganizationMembership({ organizationId, userId: alvo.clerkUserId })
-          : alvo.clerkInvitationId &&
-              clerk.organizations.revokeOrganizationInvitation({
-                organizationId,
-                invitationId: alvo.clerkInvitationId,
-                requestingUserId: user.clerkUserId ?? undefined,
-              })
-      ).catch((e) => console.error("[removeUser] Clerk", e))
-    }
+    // Sem o registro, o login dessa pessoa não abre mais esta igreja.
     await db.churchUser.delete({ where: { id: alvo.id } })
     registrar(`Removeu o acesso de ${alvo.nome} (${alvo.email})`)
   })

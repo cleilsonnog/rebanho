@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PARENTESCO_LABEL, SITUACAO_ALUNO_LABEL, STATUS_LABEL, cellSchedule, formatDate } from "@/lib/format"
 import { db } from "@/lib/db"
 import { carregarPortal, resolverAcesso } from "@/lib/portal"
-import { loginDoPortal } from "@/lib/portal-login"
+import { contaLogada } from "@/lib/login"
 import { cn } from "@/lib/utils"
 
 export const metadata: Metadata = {
@@ -54,7 +54,7 @@ export default async function PortalPage({ searchParams }: { searchParams: Promi
   // Sessão "pendente" (logado, sem igreja escolhida) é o normal aqui: o membro não faz parte da organização.
   const { userId } = await auth({ treatPendingAsSignedOut: false })
   if (!userId) redirect("/membro/entrar")
-  const emails = (await loginDoPortal())?.emails ?? []
+  const emails = (await contaLogada())?.emails ?? []
   const { igreja, ver } = await searchParams
   const acesso = await resolverAcesso(emails, igreja)
 

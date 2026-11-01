@@ -4,19 +4,19 @@ import { ShieldOff } from "lucide-react"
 
 import { Logo } from "@/components/brand"
 import { AppShell } from "@/components/app/app-shell"
-import { ActionError, getSession } from "@/lib/church"
+import { ActionError, SemIgreja, getSession } from "@/lib/church"
 import { loadAppData } from "@/lib/data"
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  // Sessão "pendente" = logado mas ainda sem igreja escolhida; vai para /igreja em vez de /entrar.
-  const { userId, orgId } = await auth({ treatPendingAsSignedOut: false })
+  const { userId } = await auth({ treatPendingAsSignedOut: false })
   if (!userId) redirect("/entrar")
-  if (!orgId) redirect("/igreja")
 
   let session
   try {
     session = await getSession()
   } catch (e) {
+    // Nenhuma igreja ainda, ou mais de uma sem escolha: vai para a tela de escolher ou cadastrar.
+    if (e instanceof SemIgreja) redirect("/igreja")
     if (!(e instanceof ActionError)) throw e
     return (
       <div className="flex min-h-svh flex-col items-center justify-center gap-6 p-6 text-center">

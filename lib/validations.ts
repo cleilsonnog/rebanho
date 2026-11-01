@@ -281,6 +281,8 @@ export const whatsappSchema = z
 
 export const roleSchema = z.enum(["admin", "secretaria", "tesouraria", "pastor", "lider"], "Função inválida")
 
+export const newChurchSchema = z.object({ nome: obrigatorio(120, "Nome da igreja").min(3, "Informe o nome da igreja") })
+
 export const inviteSchema = z
   .object({
     nome: obrigatorio(120, "Nome"),

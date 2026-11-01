@@ -4,7 +4,7 @@ SaaS de gestão de membros para igrejas: landing page e painel com membros, visi
 aniversariantes, mapa, carteirinhas, certificados, financeiro, agenda e WhatsApp.
 
 **Stack:** Next.js 16 (App Router, Turbopack), React 19, Tailwind CSS v4, shadcn/ui (Radix),
-Clerk (login e organizações), Prisma 7 + PostgreSQL no Neon, Zod, Recharts, Leaflet e Zustand.
+Clerk (só o login), Prisma 7 + PostgreSQL no Neon, Zod, Recharts, Leaflet e Zustand.
 
 ## Como rodar
 
@@ -19,15 +19,17 @@ npm run db:seed             # opcional: igreja de exemplo com membros
 npm run dev                 # http://localhost:3000
 ```
 
-No painel do Clerk, ative **Organizations** com a opção **Membership required**. Cada igreja é
-uma organização, e os usuários dela (pastor, secretaria, tesouraria) são membros dessa organização.
+O Clerk faz só o login (e-mail com código, senha ou Google). As **Organizations** do Clerk não são usadas: a
+igreja e a equipe ficam no banco (`Church` e `ChurchUser`), sem o limite de 20 pessoas por organização e de 100
+organizações do Clerk. Podem ficar desligadas no painel do Clerk.
 
 ## Fluxo de acesso
 
 1. `/criar-conta` ou `/entrar`: telas do Clerk em português.
-2. `/igreja`: o usuário cria a igreja ou escolhe uma para a qual foi convidado.
-3. `/app`: painel. O layout confere no servidor se há usuário e igreja ativa. No primeiro acesso,
-   cria o registro `Church` no banco, ligado à organização por `clerkOrgId`.
+2. `/igreja`: o usuário cadastra a igreja (vira administrador) ou escolhe uma das suas. Convites da equipe
+   feitos para o e-mail verificado da conta são ligados aqui e em qualquer acesso ao painel.
+3. `/app`: painel. O layout confere no servidor a conta, a igreja aberta (cookie `rebanho_igreja`, que só vale
+   se a conta fizer parte da equipe dela) e a função. Quem só tem o portal do membro vai para `/membro`.
 
 ## Scripts
 
@@ -52,7 +54,7 @@ uma organização, e os usuários dela (pastor, secretaria, tesouraria) são mem
 | `proxy.ts` | Middleware do Clerk (a proteção fica em cada layout e Server Action) |
 | `prisma/` | Schema, migrations e seed do banco |
 | `lib/db.ts` | Prisma Client com o adapter do Neon |
-| `lib/church.ts` | Sessão: liga a organização do Clerk à igreja e o login ao usuário da igreja (com a função) |
+| `lib/church.ts` | Sessão: liga o login aos convites pelo e-mail e escolhe a igreja aberta e a função |
 | `lib/validations.ts` | Esquemas Zod de todos os formulários (usados no navegador e no servidor) |
 | `lib/permissions.ts` | O que cada função pode ver e alterar |
 | `lib/action.ts` | `secureAction`: sessão → permissão → Zod, em toda Server Action |

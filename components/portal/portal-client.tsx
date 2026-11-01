@@ -22,10 +22,10 @@ import { correctionSchema } from "@/lib/validations"
 // Partes do portal do membro que precisam do navegador: sair, instalar, virar a carteirinha, imprimir certificados
 // e pedir correção dos dados.
 
-export function SairButton({ className }: { className?: string }) {
+export function SairButton({ className, para = "/membro/entrar" }: { className?: string; para?: string }) {
   const { signOut } = useClerk()
   return (
-    <Button variant="ghost" size="sm" className={className} onClick={() => signOut({ redirectUrl: "/membro/entrar" })}>
+    <Button variant="ghost" size="sm" className={className} onClick={() => signOut({ redirectUrl: para })}>
       <LogOut /> Sair
     </Button>
   )

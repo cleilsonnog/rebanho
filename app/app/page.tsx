@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { useUser } from "@clerk/nextjs"
 import { ArrowRight, Cake, CalendarDays, Droplets, HeartHandshake, Church, UserPlus, Users } from "lucide-react"
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, XAxis, YAxis } from "recharts"
 
@@ -40,7 +39,7 @@ export default function DashboardPage() {
   const { members, transactions, visits, events, church } = useApp()
   const papel = useApp((s) => s.me.papel)
   const estudo = useApp((s) => s.cellStudies.find((e) => e.semana === inicioDaSemana(TODAY.toISOString().slice(0, 10))))
-  const { user } = useUser()
+  const primeiroNome = useApp((s) => s.me.nome.split(" ")[0])
 
   const data = React.useMemo(() => {
     const ativos = members.filter((m) => m.status === "ativo")
@@ -102,7 +101,7 @@ export default function DashboardPage() {
   return (
     <>
       <PageHeader
-        title={user?.firstName ? `Olá, ${user.firstName}!` : "Olá!"}
+        title={primeiroNome ? `Olá, ${primeiroNome}!` : "Olá!"}
         description={`${church.nome} · ${TODAY.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}`}
       >
         {canWrite(papel, "visitas") && <Button variant="outline" asChild><Link href="/app/visitas?nova=1"><HeartHandshake /> Registrar visita</Link></Button>}

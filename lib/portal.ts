@@ -7,7 +7,7 @@ import { ActionError } from "./church"
 import { db } from "./db"
 import { cellInclude, loadFiliais, toCertificate, toChurch, toEvent, toISO, toMember } from "./data"
 import { age } from "./format"
-import { loginDoPortal } from "./portal-login"
+import { contaLogada } from "./login"
 import { limitar } from "./rate-limit"
 import { fieldErrors } from "./validations"
 import type { Church, ChurchEvent, IssuedCertificate, Member, Parentesco, SituacaoAluno } from "./types"
@@ -74,7 +74,7 @@ export async function portalAction<S extends z.ZodType<{ membroId: string }>, T>
   fn: (data: z.output<S>, ctx: { churchId: string; pessoa: Pessoa }) => Promise<T>
 ): Promise<ActionResult<T>> {
   try {
-    const login = await loginDoPortal()
+    const login = await contaLogada()
     if (!login) return { ok: false, error: "Sua sessão expirou. Entre novamente." }
     await limitar("portal", login.userId)
     const parsed = schema.safeParse(input)

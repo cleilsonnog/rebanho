@@ -1,10 +1,11 @@
 "use client"
 
 import * as React from "react"
-import { Check, Database, Download, ImageUp, Loader2, MapPin, Plus, Trash2 } from "lucide-react"
+import { Check, Database, Download, ImageUp, Loader2, MapPin, Plus, Send, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { ChurchLogo } from "@/components/app/church-logo"
+import { ConviteEquipe } from "@/components/app/convite-equipe"
 import { FiliaisSettings } from "@/components/app/filiais-settings"
 import { HistoricoSettings } from "@/components/app/historico"
 import { PortalSettings } from "@/components/app/portal-settings"
@@ -26,7 +27,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { notify, useFormAction } from "@/hooks/use-form-action"
 import { ROLE_LABEL, ROLE_PERMISSIONS } from "@/lib/format"
 import { useApp, useAppStore } from "@/lib/store"
-import type { Church, UserRole } from "@/lib/types"
+import type { AppUser, Church, UserRole } from "@/lib/types"
 import { churchSchema, inviteSchema } from "@/lib/validations"
 
 /** Reduz a imagem para no máximo 512 px antes de enviar: fica leve e cabe no limite das Server Actions. */
@@ -168,6 +169,7 @@ function UsuariosTab() {
   const [email, setEmail] = React.useState("")
   const [memberId, setMemberId] = React.useState<string>()
   const [acesso, setAcesso] = React.useState("")
+  const [convite, setConvite] = React.useState<AppUser>()
   const filiais = useApp((s) => s.church.congregacoes)
   const temFilial = (p: UserRole) => p === "secretaria" || p === "pastor"
   const members = useApp((s) => s.members)
@@ -202,8 +204,8 @@ function UsuariosTab() {
                     memberId: papel === "lider" ? memberId : undefined,
                     congregacao: temFilial(papel) ? acesso : undefined,
                   }
-                  submit(inviteSchema, convite, () => addUser(convite), () => {
-                    toast.success("Convite enviado por e-mail")
+                  submit(inviteSchema, convite, () => addUser(convite), (u) => {
+                    setConvite(u)
                     setOpen(false)
                     setNome("")
                     setEmail("")
@@ -244,7 +246,8 @@ function UsuariosTab() {
                   <Field><FieldLabel htmlFor="unome">Nome</FieldLabel><Input {...invalid("nome")} id="unome" value={nome} onChange={(e) => setNome(e.target.value)} required /><FieldError>{errors.nome}</FieldError></Field>
                   <Field><FieldLabel htmlFor="uemail">E-mail</FieldLabel><Input {...invalid("email")} id="uemail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /><FieldError>{errors.email}</FieldError></Field>
                 </FieldGroup>
-                <DialogFooter className="mt-6"><Button type="submit" disabled={pending}>{pending ? "Enviando…" : "Enviar convite"}</Button></DialogFooter>
+                <p className="mt-4 text-xs text-muted-foreground">A pessoa entra no Rebanho com este e-mail e o acesso é ligado sozinho. Em seguida você manda o link pelo WhatsApp.</p>
+                <DialogFooter className="mt-4"><Button type="submit" disabled={pending}>{pending ? "Salvando…" : "Criar convite"}</Button></DialogFooter>
               </form>
             </DialogContent>
           </Dialog>
@@ -292,7 +295,10 @@ function UsuariosTab() {
                   )}
                 </TableCell>
                 <TableCell><Switch checked={u.ativo} disabled={u.id === me.id} onCheckedChange={(v) => notify(updateUser(u.id, { ativo: v }), v ? "Acesso reativado" : "Acesso desativado")} /></TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap">
+                  {u.pendente && (
+                    <Button variant="ghost" size="icon-sm" aria-label={`Mandar o convite de ${u.nome} de novo`} onClick={() => setConvite(u)}><Send /></Button>
+                  )}
                   {u.id !== me.id && (
                     <Button variant="ghost" size="icon-sm" aria-label="Remover" onClick={() => confirm(`Remover ${u.nome}?`) && notify(removeUser(u.id), "Usuário removido")}><Trash2 /></Button>
                   )}
@@ -302,6 +308,7 @@ function UsuariosTab() {
           </TableBody>
         </Table>
       </Card>
+      <ConviteEquipe u={convite} onClose={() => setConvite(undefined)} />
       <Card className="self-start">
         <CardHeader><CardTitle>Níveis de acesso</CardTitle><CardDescription>Cada função vê só o que precisa.</CardDescription></CardHeader>
         <CardContent className="space-y-4">
