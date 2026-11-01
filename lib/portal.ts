@@ -39,7 +39,7 @@ export async function resolverAcesso(emails: string[], igrejaId?: string): Promi
   if (lista.length === 0) return { tipo: "sem-acesso" }
 
   const contas = await db.member.findMany({
-    where: { portal: true, status: { not: "transferido" }, OR: lista.map((e) => ({ email: { equals: e, mode: "insensitive" as const } })) },
+    where: { portal: true, status: { not: "transferido" }, church: { bloqueada: false }, OR: lista.map((e) => ({ email: { equals: e, mode: "insensitive" as const } })) },
     select: { id: true, nome: true, churchId: true, familyId: true, parentesco: true, church: { select: { nome: true } } },
     orderBy: { nome: "asc" },
   })

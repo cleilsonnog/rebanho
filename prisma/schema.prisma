@@ -15,6 +15,8 @@ model Church {
   clerkOrgId String? @unique
   nome       String
   sigla      String  @default("")
+  /// Único entre as igrejas quando preenchido, comparando só os números (índice parcial
+  /// "Church_cnpj_digitos_key", criado à mão na migração 20261101190000_plataforma: o Prisma não descreve esse tipo).
   cnpj       String  @default("")
   pastor     String  @default("")
   telefone   String  @default("")
@@ -36,6 +38,10 @@ model Church {
   whatsappDiasAntes  Int     @default(1)
   whatsappAutomatico Boolean @default(true)
   whatsappMensagem   String  @default("Olá, {nome}! 🎉 A {igreja} celebra a sua vida hoje. Feliz aniversário!")
+
+  /// Bloqueada pelo dono da plataforma (/admin): ninguém da equipe nem do portal entra até desbloquear.
+  bloqueada      Boolean @default(false)
+  bloqueioMotivo String?
 
   /// O que o portal do membro mostra além dos dados da própria pessoa (só nomes; a igreja escolhe).
   portalAniversariantes Boolean @default(false)
@@ -565,4 +571,17 @@ model MemberCorrection {
 
   @@index([churchId, status])
   @@index([memberId])
+}
+
+/// O que o dono da plataforma fez no /admin (bloquear, desbloquear, apagar igreja). Fica fora da igreja para
+/// sobreviver quando ela é apagada.
+model PlatformLog {
+  id         String   @id @default(cuid())
+  adminEmail String
+  acao       String
+  churchId   String?
+  churchNome String
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
 }

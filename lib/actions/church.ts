@@ -24,6 +24,14 @@ export async function updateChurch(input: z.input<typeof churchSchema>) {
       posicao = { lat: p?.lat ?? null, lng: p?.lng ?? null }
     }
 
+    // CNPJ é único entre as igrejas (o banco também garante): evita outra pessoa cadastrar a mesma igreja.
+    const digitos = c.cnpj.replace(/\D/g, "")
+    if (digitos) {
+      const [outra] = await db.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "Church" WHERE regexp_replace(cnpj, '[^0-9]', '', 'g') = ${digitos} AND id <> ${church.id} LIMIT 1`
+      if (outra) throw new ActionError("Este CNPJ já está cadastrado em outra igreja do Rebanho. Se a igreja é sua, fale com o suporte.")
+    }
+
     const row = await db.church.update({ where: { id: church.id }, data: { ...c, ...endereco, ...posicao } })
     registrar("Alterou os dados da igreja")
     return toChurch(row, await loadFiliais(row))

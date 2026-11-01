@@ -349,7 +349,10 @@ export async function loadAppData({ church, user }: Session): Promise<AppData> {
   ])
 
   return {
-    me: toUser({ ...user, congregation: filiais.find((f) => f.id === filialDe(user)) ?? null }),
+    me: {
+      ...toUser({ ...user, congregation: filiais.find((f) => f.id === filialDe(user)) ?? null }),
+      dono: (process.env.PLATFORM_ADMIN_EMAILS ?? "").toLowerCase().split(",").map((e) => e.trim()).includes(user.email.toLowerCase()) || undefined,
+    },
     church: toChurch(church, filiais),
     members: members.map((m) => protegerMembro(toMember(m), escopo)),
     families: families.map(toFamily),

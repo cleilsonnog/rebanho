@@ -143,6 +143,8 @@ export interface AppUser {
   memberId?: string
   /** Filial a que o acesso está restrito (secretaria ou pastor de filial). Vazio = igreja toda. */
   congregacao?: string
+  /** Só no `me`: o e-mail está em PLATFORM_ADMIN_EMAILS (mostra o atalho do /admin; quem confere de verdade é a página). */
+  dono?: boolean
 }
 
 /** Sede ou filial. A sede é a própria igreja: usa o endereço e a posição dela. */

@@ -58,6 +58,7 @@ export async function sessaoDaEquipe(clerkUserId: string, igrejaId: string | und
   }
   const v = vinculos.find((x) => x.churchId === igrejaId) ?? (vinculos.length === 1 ? vinculos[0] : undefined)
   if (!v) throw new SemIgreja()
+  if (v.church.bloqueada) throw new ActionError("Esta igreja está bloqueada no Rebanho. Fale com o suporte.")
   if (!v.ativo) throw new ActionError("Seu acesso a esta igreja foi desativado pelo administrador.")
   const { church, ...user } = v
   return { church, user }

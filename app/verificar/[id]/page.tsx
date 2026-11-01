@@ -14,8 +14,9 @@ export const metadata: Metadata = { title: "Verificar carteirinha", robots: { in
 // Página pública (QR Code da carteirinha): mostra só o necessário para conferir a membresia.
 async function buscar(id: string) {
   if (!idSchema.safeParse(id).success) return null
-  return db.member.findUnique({
-    where: { id },
+  // Carteirinha de igreja bloqueada no Rebanho (ex.: cadastro falso) não confirma membresia.
+  return db.member.findFirst({
+    where: { id, church: { bloqueada: false } },
     select: {
       id: true,
       nome: true,

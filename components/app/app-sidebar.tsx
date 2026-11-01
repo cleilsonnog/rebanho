@@ -21,6 +21,7 @@ import {
   Settings,
   Upload,
   Users,
+  ShieldCheck,
 } from "lucide-react"
 
 import { LogoMark } from "@/components/brand"
@@ -182,6 +183,11 @@ export function AppSidebar() {
                 <DropdownMenuItem asChild>
                   <Link href="/igreja"><ArrowLeftRight /> Trocar de igreja</Link>
                 </DropdownMenuItem>
+                {me.dono && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin"><ShieldCheck /> Plataforma (dono)</Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onSelect={() => signOut({ redirectUrl: "/entrar" })}>
                   <LogOut /> Sair
                 </DropdownMenuItem>

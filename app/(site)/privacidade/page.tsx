@@ -103,6 +103,15 @@ export default function PrivacidadePage() {
         </p>
       </Secao>
 
+      <Secao titulo="Controle da plataforma">
+        <p>
+          Para segurança e suporte, a equipe do Rebanho vê a lista de igrejas cadastradas, com nome, cidade, CNPJ, nome e
+          e-mail do administrador e a quantidade de membros, sem abrir os cadastros dos membros. Ela pode bloquear ou apagar
+          uma igreja cadastrada indevidamente (por exemplo, por outra pessoa usando o nome de uma igreja), e cada uma dessas
+          ações fica registrada. O CNPJ de uma igreja só pode ser usado uma vez no Rebanho.
+        </p>
+      </Secao>
+
       <Secao titulo="Página pública da carteirinha">
         <p>
           O QR Code da carteirinha abre uma página pública para conferir a membresia. Ela mostra somente o nome, a igreja,
