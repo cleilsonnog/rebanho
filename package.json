@@ -19,17 +19,17 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@clerk/localizations": "^4.24.3",
-    "@clerk/nextjs": "^7.9.22",
-    "@clerk/ui": "^1.42.1",
+    "@clerk/localizations": "^4.24.6",
+    "@clerk/nextjs": "^7.9.25",
+    "@clerk/ui": "^1.42.4",
     "@prisma/adapter-neon": "7.10.1",
     "@prisma/client": "7.10.1",
     "class-variance-authority": "^0.7.1",
-    "cn": "^0.5.0",
+    "cn": "^0.5.2",
     "date-fns": "^4.4.0",
     "leaflet": "^1.9.4",
-    "lucide-react": "^1.62.0",
-    "next": "16.4.3",
+    "lucide-react": "^1.70.0",
+    "next": "16.4.5",
     "next-themes": "^0.4.6",
     "qrcode.react": "^4.2.0",
     "radix-ui": "^1.8.1",
@@ -54,13 +54,13 @@
     "@types/react-dom": "^19",
     "dotenv": "^18.0.9",
     "eslint": "^10",
-    "eslint-config-next": "16.4.3",
+    "eslint-config-next": "16.4.5",
     "prettier": "^3.9.10",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "prisma": "7.10.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5",
-    "vitest": "^5.0.5"
+    "vitest": "^5.1.0"
   }
 }
